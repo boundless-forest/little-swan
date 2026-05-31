@@ -19,48 +19,75 @@ struct SettingsView: View {
                 .font(.title2.weight(.semibold))
 
             Form {
-                Picker("Provider", selection: $draft.provider.name) {
-                    Text("DeepSeek").tag("DeepSeek")
-                }
-                .disabled(true)
-
-                TextField("Base URL", text: $draft.provider.baseURL)
-                    .textFieldStyle(.roundedBorder)
-
-                HStack(spacing: 8) {
-                    apiKeyField
-
-                    Button {
-                        pasteAPIKey()
-                    } label: {
-                        Label("Paste", systemImage: "doc.on.clipboard")
+                Section("Provider") {
+                    Picker("Provider", selection: $draft.provider.name) {
+                        Text("DeepSeek").tag("DeepSeek")
                     }
-                    .labelStyle(.iconOnly)
-                    .help("Paste API key")
+                    .disabled(true)
 
-                    Button {
-                        isAPIKeyVisible.toggle()
-                    } label: {
-                        Label(
-                            isAPIKeyVisible ? "Hide" : "Show",
-                            systemImage: isAPIKeyVisible ? "eye.slash" : "eye"
-                        )
+                    TextField("Base URL", text: $draft.provider.baseURL)
+                        .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 8) {
+                        apiKeyField
+
+                        Button {
+                            pasteAPIKey()
+                        } label: {
+                            Label("Paste", systemImage: "doc.on.clipboard")
+                        }
+                        .labelStyle(.iconOnly)
+                        .help("Paste API key")
+
+                        Button {
+                            isAPIKeyVisible.toggle()
+                        } label: {
+                            Label(
+                                isAPIKeyVisible ? "Hide" : "Show",
+                                systemImage: isAPIKeyVisible ? "eye.slash" : "eye"
+                            )
+                        }
+                        .labelStyle(.iconOnly)
+                        .help(isAPIKeyVisible ? "Hide API key" : "Show API key")
                     }
-                    .labelStyle(.iconOnly)
-                    .help(isAPIKeyVisible ? "Hide API key" : "Show API key")
+
+                    Picker("Model", selection: $draft.provider.model) {
+                        Text("deepseek-v4-flash").tag("deepseek-v4-flash")
+                    }
+                    .disabled(true)
                 }
 
-                Picker("Model", selection: $draft.provider.model) {
-                    Text("deepseek-v4-flash").tag("deepseek-v4-flash")
-                }
-                .disabled(true)
+                Section("Translation") {
+                    Stepper(
+                        "Realtime delay: \(draft.debounceMilliseconds) ms",
+                        value: $draft.debounceMilliseconds,
+                        in: 250...2000,
+                        step: 50
+                    )
 
-                Stepper(
-                    "Realtime delay: \(draft.debounceMilliseconds) ms",
-                    value: $draft.debounceMilliseconds,
-                    in: 250...2000,
-                    step: 50
-                )
+                    Picker("Default style", selection: $draft.defaultWritingStyle) {
+                        ForEach(WritingStyle.allCases) { style in
+                            Text(style.label).tag(style)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("Panel") {
+                    Picker("Layout", selection: $draft.panelLayout) {
+                        ForEach(PanelLayout.allCases) { layout in
+                            Text(layout.label).tag(layout)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    Stepper(
+                        "Width: \(draft.panelWidth) px",
+                        value: $draft.panelWidth,
+                        in: PanelPresentation.minimumWidth...PanelPresentation.maximumWidth,
+                        step: 20
+                    )
+                }
             }
             .formStyle(.grouped)
 
@@ -90,7 +117,7 @@ struct SettingsView: View {
             }
         }
         .padding(22)
-        .frame(width: 520, height: 360)
+        .frame(width: 560, height: 560)
     }
 
     @ViewBuilder

@@ -10,16 +10,23 @@ final class TranslationViewModel: ObservableObject {
     }
 
     @Published var outputText = ""
-    @Published var selectedStyle: WritingStyle = .natural {
+    @Published var selectedStyle: WritingStyle {
         didSet { scheduleTranslation() }
     }
 
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var isPanelExpanded = false
+    // The AppKit window controller owns the final screen-clamped size; SwiftUI reads it here.
+    @Published private(set) var panelContentSize = CGSize(
+        width: PanelPresentation.defaultWidth,
+        height: PanelPresentation.compactSideBySideHeight
+    )
 
     private let configStore: ConfigStore
     private let client: DeepSeekClient
     private var translationTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     init(
         configStore: ConfigStore,
@@ -27,6 +34,15 @@ final class TranslationViewModel: ObservableObject {
     ) {
         self.configStore = configStore
         self.client = client
+        selectedStyle = configStore.configuration.defaultWritingStyle
+
+        configStore.$configuration
+            .map(\.defaultWritingStyle)
+            .removeDuplicates()
+            .sink { [weak self] style in
+                self?.selectedStyle = style
+            }
+            .store(in: &cancellables)
     }
 
     func copyOutput() {
@@ -35,6 +51,15 @@ final class TranslationViewModel: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(outputText, forType: .string)
+    }
+
+    func togglePanelExpansion() {
+        isPanelExpanded.toggle()
+    }
+
+    func updatePanelContentSize(_ size: CGSize) {
+        guard panelContentSize != size else { return }
+        panelContentSize = size
     }
 
     func retryNow() {

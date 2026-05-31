@@ -3,36 +3,45 @@ import SwiftUI
 
 struct MainPanelView: View {
     @ObservedObject var viewModel: TranslationViewModel
+    @ObservedObject var configStore: ConfigStore
     @FocusState private var isInputFocused: Bool
+    @State private var isCopyFeedbackVisible = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
 
     var openSettings: () -> Void
     var quit: () -> Void
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 10) {
             header
 
-            ZStack(alignment: .topLeading) {
-                TextEditor(text: $viewModel.inputText)
-                    .font(.system(size: 15))
-                    .focused($isInputFocused)
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .frame(minHeight: 130)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(nsColor: .separatorColor))
-                    )
+            contentLayout
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .frame(width: panelWidth, height: panelHeight)
+        .onAppear {
+            isInputFocused = true
+        }
+        .onDisappear {
+            copyFeedbackTask?.cancel()
+        }
+    }
 
-                if viewModel.inputText.isEmpty {
-                    Text("Type in any language")
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 16)
-                        .padding(.leading, 14)
-                        .allowsHitTesting(false)
-                }
+    private var header: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "text.bubble")
+                .font(.system(size: 16, weight: .semibold))
+
+            Text("Saywise")
+                .font(.system(size: 16, weight: .semibold))
+
+            Spacer()
+
+            if viewModel.isLoading {
+                ProgressView()
+                    .controlSize(.small)
             }
 
             Picker("Style", selection: $viewModel.selectedStyle) {
@@ -40,63 +49,17 @@ struct MainPanelView: View {
                     Text(style.label).tag(style)
                 }
             }
-            .pickerStyle(.segmented)
+            .pickerStyle(.menu)
+            .frame(width: 140)
+            .help("Writing style")
 
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("English")
-                        .font(.headline)
-
-                    Spacer()
-
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    }
-
-                    Button {
-                        viewModel.copyOutput()
-                    } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
-                    }
-                    .disabled(viewModel.outputText.isEmpty)
-                }
-
-                ZStack(alignment: .topLeading) {
-                    ScrollView {
-                        Text(outputDisplayText)
-                            .font(.system(size: 15))
-                            .foregroundStyle(outputForegroundStyle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                            .padding(12)
-                    }
-                    .frame(minHeight: 150)
-                    .background(Color(nsColor: .textBackgroundColor))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color(nsColor: .separatorColor))
-                    )
-                }
+            Button {
+                viewModel.togglePanelExpansion()
+            } label: {
+                Image(systemName: expansionIconName)
             }
-        }
-        .padding(18)
-        .frame(width: 520, height: 500)
-        .onAppear {
-            isInputFocused = true
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "text.bubble")
-                .font(.system(size: 18, weight: .semibold))
-
-            Text("Saywise")
-                .font(.system(size: 18, weight: .semibold))
-
-            Spacer()
+            .buttonStyle(.borderless)
+            .help(viewModel.isPanelExpanded ? "Collapse" : "Expand")
 
             Button {
                 openSettings()
@@ -113,6 +76,142 @@ struct MainPanelView: View {
             }
             .buttonStyle(.borderless)
             .help("Quit")
+        }
+    }
+
+    @ViewBuilder
+    private var contentLayout: some View {
+        switch configStore.configuration.panelLayout {
+        case .sideBySide:
+            HStack(spacing: 10) {
+                inputEditor
+                outputView
+            }
+        case .stacked:
+            VStack(spacing: 10) {
+                inputEditor
+                outputView
+            }
+        }
+    }
+
+    private var inputEditor: some View {
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: $viewModel.inputText)
+                .font(.system(size: 14))
+                .focused($isInputFocused)
+                .scrollContentBackground(.hidden)
+                .padding(8)
+                .background(Color(nsColor: .textBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color(nsColor: .separatorColor))
+                )
+
+            if viewModel.inputText.isEmpty {
+                Text("Type in any language")
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 15)
+                    .padding(.leading, 14)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: paneHeight)
+    }
+
+    private var outputView: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("English")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Label("Copied", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+                    .opacity(isCopyFeedbackVisible ? 1 : 0)
+                    .frame(width: 68, alignment: .trailing)
+
+                Button {
+                    copyOutput()
+                } label: {
+                    Image(systemName: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc")
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.outputText.isEmpty)
+                .help("Copy English result")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+
+            Divider()
+
+            ScrollView {
+                Text(outputDisplayText)
+                    .font(.system(size: 14))
+                    .foregroundStyle(outputForegroundStyle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(12)
+            }
+        }
+        .frame(height: paneHeight)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(nsColor: .separatorColor))
+        )
+        .frame(maxWidth: .infinity)
+    }
+
+    private var panelWidth: CGFloat {
+        viewModel.panelContentSize.width
+    }
+
+    private var panelHeight: CGFloat {
+        viewModel.panelContentSize.height
+    }
+
+    private var paneHeight: CGFloat {
+        switch configStore.configuration.panelLayout {
+        case .sideBySide:
+            contentHeight
+        case .stacked:
+            (contentHeight - 10) / 2
+        }
+    }
+
+    private var contentHeight: CGFloat {
+        max(110, panelHeight - 60)
+    }
+
+    private var expansionIconName: String {
+        viewModel.isPanelExpanded
+            ? "arrow.down.right.and.arrow.up.left"
+            : "arrow.up.left.and.arrow.down.right"
+    }
+
+    private func copyOutput() {
+        viewModel.copyOutput()
+
+        withAnimation(.easeOut(duration: 0.12)) {
+            isCopyFeedbackVisible = true
+        }
+
+        copyFeedbackTask?.cancel()
+        copyFeedbackTask = Task {
+            try? await Task.sleep(for: .seconds(1.4))
+
+            await MainActor.run {
+                withAnimation(.easeIn(duration: 0.2)) {
+                    isCopyFeedbackVisible = false
+                }
+            }
         }
     }
 
