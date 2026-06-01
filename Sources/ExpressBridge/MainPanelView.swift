@@ -10,6 +10,10 @@ struct MainPanelView: View {
 
     var openSettings: () -> Void
 
+    private let editorContentPadding: CGFloat = 8
+    // TextEditor is backed by NSTextView, whose text container adds this default horizontal inset.
+    private let textEditorLineFragmentPadding: CGFloat = 5
+
     var body: some View {
         VStack(spacing: 10) {
             header
@@ -33,7 +37,7 @@ struct MainPanelView: View {
             Image(systemName: "text.bubble")
                 .font(.system(size: 16, weight: .semibold))
 
-            Text("ExpressBridge")
+            Text("Translate")
                 .font(.system(size: 16, weight: .semibold))
 
             Spacer()
@@ -115,14 +119,14 @@ struct MainPanelView: View {
                     .font(.system(size: 14))
                     .focused($isInputFocused)
                     .scrollContentBackground(.hidden)
-                    .padding(8)
+                    .padding(editorContentPadding)
 
                 if viewModel.inputText.isEmpty {
                     Text("Type in any language")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                        .padding(.top, 13)
-                        .padding(.leading, 13)
+                        .padding(.top, editorContentPadding)
+                        .padding(.leading, editorContentPadding + textEditorLineFragmentPadding)
                         .allowsHitTesting(false)
                 }
             }
