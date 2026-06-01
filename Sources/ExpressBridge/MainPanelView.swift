@@ -1,4 +1,4 @@
-import SaywiseCore
+import ExpressBridgeCore
 import SwiftUI
 
 struct MainPanelView: View {
@@ -9,7 +9,6 @@ struct MainPanelView: View {
     @State private var copyFeedbackTask: Task<Void, Never>?
 
     var openSettings: () -> Void
-    var quit: () -> Void
 
     var body: some View {
         VStack(spacing: 10) {
@@ -34,7 +33,7 @@ struct MainPanelView: View {
             Image(systemName: "text.bubble")
                 .font(.system(size: 16, weight: .semibold))
 
-            Text("Saywise")
+            Text("ExpressBridge")
                 .font(.system(size: 16, weight: .semibold))
 
             Spacer()
@@ -68,14 +67,6 @@ struct MainPanelView: View {
             }
             .buttonStyle(.borderless)
             .help("Settings")
-
-            Button {
-                quit()
-            } label: {
-                Image(systemName: "xmark.circle")
-            }
-            .buttonStyle(.borderless)
-            .help("Quit")
         }
     }
 
@@ -96,29 +87,54 @@ struct MainPanelView: View {
     }
 
     private var inputEditor: some View {
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $viewModel.inputText)
-                .font(.system(size: 14))
-                .focused($isInputFocused)
-                .scrollContentBackground(.hidden)
-                .padding(8)
-                .background(Color(nsColor: .textBackgroundColor))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color(nsColor: .separatorColor))
-                )
-
-            if viewModel.inputText.isEmpty {
-                Text("Type in any language")
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Input")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .padding(.top, 15)
-                    .padding(.leading, 14)
-                    .allowsHitTesting(false)
+
+                Spacer()
+
+                Button {
+                    viewModel.clearInput()
+                    isInputFocused = true
+                } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.inputText.isEmpty)
+                .help("Clear input")
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+
+            Divider()
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $viewModel.inputText)
+                    .font(.system(size: 14))
+                    .focused($isInputFocused)
+                    .scrollContentBackground(.hidden)
+                    .padding(8)
+
+                if viewModel.inputText.isEmpty {
+                    Text("Type in any language")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 13)
+                        .padding(.leading, 13)
+                        .allowsHitTesting(false)
+                }
             }
         }
-        .frame(maxWidth: .infinity)
         .frame(height: paneHeight)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color(nsColor: .separatorColor))
+        )
+        .frame(maxWidth: .infinity)
     }
 
     private var outputView: some View {

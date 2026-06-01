@@ -1,5 +1,5 @@
 import Foundation
-import SaywiseCore
+import ExpressBridgeCore
 
 func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
     let messages = PromptBuilder.messages(input: "这个功能以后会支持吗？", style: .natural)
@@ -22,10 +22,11 @@ func testDefaultConfigurationUsesDeepSeekFlash() {
     precondition(configuration.debounceMilliseconds == 700)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelLayout == .sideBySide)
-    precondition(configuration.panelWidth == PanelPresentation.defaultWidth)
+    precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
+    precondition(configuration.panelPosition == .center)
 }
 
-func testConfigurationDecodesLegacySettingsWithoutDefaultStyle() throws {
+func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
     let legacyJSON = """
     {
       "provider": {
@@ -42,14 +43,20 @@ func testConfigurationDecodesLegacySettingsWithoutDefaultStyle() throws {
 
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelLayout == .sideBySide)
-    precondition(configuration.panelWidth == PanelPresentation.defaultWidth)
+    precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
+    precondition(configuration.panelPosition == .center)
 }
 
-func testPanelPresentationClampsWidth() {
-    precondition(PanelPresentation.clampedWidth(500) == PanelPresentation.minimumWidth)
-    precondition(PanelPresentation.clampedWidth(1_500) == PanelPresentation.maximumWidth)
-    precondition(PanelPresentation.clampedWidth(900, availableWidth: 820) == 796)
-    precondition(PanelPresentation.clampedWidth(900, availableWidth: 600) == 576)
+func testPanelPresentationClampsWidthPercentage() {
+    precondition(PanelPresentation.clampedWidthPercentage(20) == PanelPresentation.minimumWidthPercentage)
+    precondition(PanelPresentation.clampedWidthPercentage(120) == PanelPresentation.maximumWidthPercentage)
+    precondition(PanelPresentation.clampedWidthPercentage(65) == 65)
+}
+
+func testPanelPresentationUsesPercentageWidth() {
+    precondition(PanelPresentation.width(percentage: 60, availableWidth: 1_000) == 586)
+    precondition(PanelPresentation.width(percentage: 35, availableWidth: 600) == 360)
+    precondition(PanelPresentation.width(percentage: 90, availableWidth: 600) == 518)
 }
 
 func testPanelPresentationHeightsFollowLayoutAndExpansion() {
@@ -59,7 +66,7 @@ func testPanelPresentationHeightsFollowLayoutAndExpansion() {
     precondition(PanelPresentation.height(layout: .stacked, isExpanded: true) == 580)
 }
 
-func testConfigurationClampsPersistedPanelWidth() throws {
+func testConfigurationClampsPersistedPanelWidthPercentage() throws {
     let oversizedJSON = """
     {
       "provider": {
@@ -71,7 +78,8 @@ func testConfigurationClampsPersistedPanelWidth() throws {
       "debounceMilliseconds": 700,
       "defaultWritingStyle": "professional",
       "panelLayout": "stacked",
-      "panelWidth": 2400
+      "panelWidthPercentage": 120,
+      "panelPosition": "bottomRight"
     }
     """.data(using: .utf8)!
 
@@ -79,21 +87,47 @@ func testConfigurationClampsPersistedPanelWidth() throws {
 
     precondition(configuration.defaultWritingStyle == .professional)
     precondition(configuration.panelLayout == .stacked)
-    precondition(configuration.panelWidth == PanelPresentation.maximumWidth)
+    precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
+    precondition(configuration.panelPosition == .bottomRight)
 }
 
-func testConfigurationInitializerClampsPanelWidth() {
-    let configuration = AppConfiguration(panelWidth: 2_400)
+func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
+    let legacyJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "defaultWritingStyle": "professional",
+      "panelLayout": "stacked",
+      "panelWidth": 860
+    }
+    """.data(using: .utf8)!
 
-    precondition(configuration.panelWidth == PanelPresentation.maximumWidth)
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
+
+    precondition(configuration.panelWidthPercentage == 61)
+    precondition(configuration.panelPosition == .center)
+}
+
+func testConfigurationInitializerClampsPanelWidthPercentage() {
+    let configuration = AppConfiguration(panelWidthPercentage: 120, panelPosition: .bottomLeft)
+
+    precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
+    precondition(configuration.panelPosition == .bottomLeft)
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testDefaultConfigurationUsesDeepSeekFlash()
-try testConfigurationDecodesLegacySettingsWithoutDefaultStyle()
-testPanelPresentationClampsWidth()
+try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
+testPanelPresentationClampsWidthPercentage()
+testPanelPresentationUsesPercentageWidth()
 testPanelPresentationHeightsFollowLayoutAndExpansion()
-try testConfigurationClampsPersistedPanelWidth()
-testConfigurationInitializerClampsPanelWidth()
+try testConfigurationClampsPersistedPanelWidthPercentage()
+try testConfigurationDecodesLegacyPanelWidthAsPercentage()
+testConfigurationInitializerClampsPanelWidthPercentage()
 
-print("Saywise smoke tests passed")
+print("ExpressBridge smoke tests passed")

@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 import Foundation
-import SaywiseCore
+import ExpressBridgeCore
 
 @MainActor
 final class TranslationViewModel: ObservableObject {
@@ -19,7 +19,7 @@ final class TranslationViewModel: ObservableObject {
     @Published var isPanelExpanded = false
     // The AppKit window controller owns the final screen-clamped size; SwiftUI reads it here.
     @Published private(set) var panelContentSize = CGSize(
-        width: PanelPresentation.defaultWidth,
+        width: PanelPresentation.width(percentage: PanelPresentation.defaultWidthPercentage),
         height: PanelPresentation.compactSideBySideHeight
     )
 
@@ -51,6 +51,10 @@ final class TranslationViewModel: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(outputText, forType: .string)
+    }
+
+    func clearInput() {
+        inputText = ""
     }
 
     func togglePanelExpansion() {

@@ -1,6 +1,6 @@
-# Saywise
+# ExpressBridge
 
-Saywise is a native macOS menu bar app for turning text from any language into natural English.
+ExpressBridge is a native macOS menu bar app for turning text from any language into natural English.
 
 The first version supports DeepSeek as a bring-your-own-key writing engine and defaults to `deepseek-v4-flash`.
 
@@ -19,19 +19,19 @@ The first version supports DeepSeek as a bring-your-own-key writing engine and d
 
 ```sh
 swift build
-swift run SaywiseSmokeTests
-swift run Saywise
+swift run ExpressBridgeSmokeTests
+swift run ExpressBridge
 ```
 
 ## App Bundle
 
 ```sh
 make app
-open Saywise.app
+open ExpressBridge.app
 ```
 
 The app configuration is stored at:
 
 ```txt
-~/Library/Application Support/Saywise/config.json
+~/Library/Application Support/ExpressBridge/config.json
 ```

@@ -16,7 +16,7 @@ public enum PromptBuilder {
             DeepSeekMessage(
                 role: "system",
                 content: """
-                You are Saywise, a macOS writing assistant for non-native English writers.
+                You are ExpressBridge, a macOS writing assistant for non-native English writers.
                 Detect the user's input language automatically.
                 Rewrite or translate the user's text into English only.
                 Preserve the user's intent and facts. Do not add unsupported claims.

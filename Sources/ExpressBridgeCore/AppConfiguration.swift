@@ -5,20 +5,23 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var debounceMilliseconds: Int
     public var defaultWritingStyle: WritingStyle
     public var panelLayout: PanelLayout
-    public var panelWidth: Int
+    public var panelWidthPercentage: Int
+    public var panelPosition: PanelPosition
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = 700,
         defaultWritingStyle: WritingStyle = .natural,
         panelLayout: PanelLayout = .sideBySide,
-        panelWidth: Int = PanelPresentation.defaultWidth
+        panelWidthPercentage: Int = PanelPresentation.defaultWidthPercentage,
+        panelPosition: PanelPosition = .center
     ) {
         self.provider = provider
         self.debounceMilliseconds = debounceMilliseconds
         self.defaultWritingStyle = defaultWritingStyle
         self.panelLayout = panelLayout
-        self.panelWidth = PanelPresentation.clampedWidth(panelWidth)
+        self.panelWidthPercentage = PanelPresentation.clampedWidthPercentage(panelWidthPercentage)
+        self.panelPosition = panelPosition
     }
 
     public static let `default` = AppConfiguration()
@@ -28,19 +31,33 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case debounceMilliseconds
         case defaultWritingStyle
         case panelLayout
+        case panelWidthPercentage
+        case panelPosition
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
         case panelWidth
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacyContainer = try decoder.container(keyedBy: LegacyCodingKeys.self)
 
         provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
         debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
         panelLayout = try container.decodeIfPresent(PanelLayout.self, forKey: .panelLayout) ?? .sideBySide
-        panelWidth = PanelPresentation.clampedWidth(
-            try container.decodeIfPresent(Int.self, forKey: .panelWidth) ?? PanelPresentation.defaultWidth
-        )
+        panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? .center
+
+        // Older builds stored an absolute pixel width. Convert it once into the new percentage-based
+        // setting so the same config scales sensibly on different displays after the rename.
+        if let widthPercentage = try container.decodeIfPresent(Int.self, forKey: .panelWidthPercentage) {
+            panelWidthPercentage = PanelPresentation.clampedWidthPercentage(widthPercentage)
+        } else if let legacyWidth = try legacyContainer.decodeIfPresent(Int.self, forKey: .panelWidth) {
+            panelWidthPercentage = PanelPresentation.widthPercentage(forLegacyWidth: legacyWidth)
+        } else {
+            panelWidthPercentage = PanelPresentation.defaultWidthPercentage
+        }
     }
 }
 

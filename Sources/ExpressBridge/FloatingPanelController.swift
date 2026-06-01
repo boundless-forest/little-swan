@@ -1,6 +1,6 @@
 import AppKit
 import Combine
-import SaywiseCore
+import ExpressBridgeCore
 import SwiftUI
 
 @MainActor
@@ -32,7 +32,7 @@ final class FloatingPanelController {
             defer: false
         )
 
-        panel.title = "Saywise"
+        panel.title = "ExpressBridge"
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
@@ -85,6 +85,8 @@ final class FloatingPanelController {
     private func applyPreferredFrame(animated: Bool) {
         guard let screen = panel.screen ?? NSScreen.main else { return }
 
+        // Recompute from the active screen each time because users can move between displays,
+        // resize the Dock, or change panel preferences while the window is already visible.
         let contentSize = Self.contentSize(
             configuration: configStore.configuration,
             isExpanded: viewModel.isPanelExpanded,
@@ -95,6 +97,7 @@ final class FloatingPanelController {
         let frameSize = panel.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size
         let targetFrame = PanelPlacement.frame(
             frameSize: frameSize,
+            position: configStore.configuration.panelPosition,
             screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame
         )
@@ -115,35 +118,112 @@ final class FloatingPanelController {
         )
 
         return NSSize(
-            width: PanelPresentation.clampedWidth(configuration.panelWidth, availableWidth: availableWidth),
+            width: PanelPresentation.width(
+                percentage: configuration.panelWidthPercentage,
+                availableWidth: availableWidth
+            ),
             height: min(preferredHeight, availableHeight ?? preferredHeight)
         )
     }
 }
 
 private enum PanelPlacement {
-    static func frame(frameSize: NSSize, screenFrame: NSRect, visibleFrame: NSRect) -> NSRect {
+    static func frame(
+        frameSize: NSSize,
+        position: PanelPosition,
+        screenFrame: NSRect,
+        visibleFrame: NSRect,
+        dockConfiguration: DockConfiguration = .current
+    ) -> NSRect {
         let margin = CGFloat(PanelPresentation.screenMargin)
-        let safeFrame = visibleFrame.insetBy(dx: margin, dy: margin)
-        let x = clamped(
-            safeFrame.midX - frameSize.width / 2,
-            lowerBound: safeFrame.minX,
-            upperBound: safeFrame.maxX - frameSize.width
+        let dockAwareFrame = dockAwareFrame(
+            screenFrame: screenFrame,
+            visibleFrame: visibleFrame,
+            dockConfiguration: dockConfiguration
         )
+        let safeFrame = dockAwareFrame.insetBy(dx: margin, dy: margin)
 
-        // AppKit's visibleFrame already accounts for a visible Dock. When the Dock is hidden,
-        // the same calculation naturally falls back to the physical screen edge plus margin.
+        let preferredX: CGFloat = switch position {
+        case .center:
+            safeFrame.midX - frameSize.width / 2
+        case .bottomLeft:
+            safeFrame.minX
+        case .bottomRight:
+            safeFrame.maxX - frameSize.width
+        }
+        let x = clamped(preferredX, lowerBound: safeFrame.minX, upperBound: safeFrame.maxX - frameSize.width)
+
         let y = clamped(
             safeFrame.minY,
-            lowerBound: screenFrame.minY + margin,
+            lowerBound: dockAwareFrame.minY + margin,
             upperBound: safeFrame.maxY - frameSize.height
         )
 
         return NSRect(origin: NSPoint(x: x, y: y), size: frameSize)
     }
 
+    private static func dockAwareFrame(
+        screenFrame: NSRect,
+        visibleFrame: NSRect,
+        dockConfiguration: DockConfiguration
+    ) -> NSRect {
+        var frame = visibleFrame
+        let hiddenDockClearance = dockConfiguration.hiddenDockClearance
+
+        switch dockConfiguration.orientation {
+        case .bottom:
+            // visibleFrame excludes a visible Dock. When auto-hide is enabled AppKit reports almost
+            // no inset, so reserve a small strip to avoid placing the panel on top of the Dock reveal zone.
+            let visibleDockInset = max(0, visibleFrame.minY - screenFrame.minY)
+            let bottomInset = visibleDockInset > 1 ? visibleDockInset : hiddenDockClearance
+            frame.origin.y = screenFrame.minY + bottomInset
+            frame.size.height = max(0, visibleFrame.maxY - frame.minY)
+        case .left:
+            // A real left/right Dock already shrinks visibleFrame; only synthesize clearance when
+            // the inset is effectively zero, which indicates an auto-hidden Dock.
+            let visibleDockInset = max(0, visibleFrame.minX - screenFrame.minX)
+            guard visibleDockInset <= 1 else { break }
+            frame.origin.x = screenFrame.minX + hiddenDockClearance
+            frame.size.width = max(0, visibleFrame.maxX - frame.minX)
+        case .right:
+            // Keep the right edge away from the hidden Dock without moving the origin, so centered
+            // and left-aligned positions continue to use the same coordinate base.
+            let visibleDockInset = max(0, screenFrame.maxX - visibleFrame.maxX)
+            guard visibleDockInset <= 1 else { break }
+            frame.size.width = max(0, screenFrame.maxX - hiddenDockClearance - frame.minX)
+        }
+
+        return frame
+    }
+
     private static func clamped(_ value: CGFloat, lowerBound: CGFloat, upperBound: CGFloat) -> CGFloat {
         guard upperBound >= lowerBound else { return lowerBound }
         return min(max(value, lowerBound), upperBound)
     }
+}
+
+private struct DockConfiguration {
+    let orientation: DockOrientation
+    let tileSize: CGFloat
+
+    static var current: DockConfiguration {
+        let defaults = UserDefaults(suiteName: "com.apple.dock")
+        let orientation = DockOrientation(rawValue: defaults?.string(forKey: "orientation") ?? "") ?? .bottom
+        let configuredTileSize = defaults?.double(forKey: "tilesize") ?? 0
+        let tileSize = configuredTileSize > 0 ? configuredTileSize : 64
+
+        return DockConfiguration(orientation: orientation, tileSize: CGFloat(tileSize))
+    }
+
+    var hiddenDockClearance: CGFloat {
+        // The Dock can reveal beyond its configured tile size because of padding and magnification.
+        // Bound the reserve so tiny and very large Dock settings still produce usable panel space.
+        min(max(tileSize + 20, 56), 128)
+    }
+}
+
+private enum DockOrientation: String {
+    case bottom
+    case left
+    case right
 }

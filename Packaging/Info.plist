@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>Saywise</string>
+	<string>ExpressBridge</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.bearwang.saywise</string>
+	<string>com.bearwang.expressbridge</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Saywise</string>
+	<string>ExpressBridge</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

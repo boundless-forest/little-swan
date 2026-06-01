@@ -3,29 +3,29 @@
 import PackageDescription
 
 let package = Package(
-    name: "Saywise",
+    name: "ExpressBridge",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .library(name: "SaywiseCore", targets: ["SaywiseCore"]),
-        .executable(name: "Saywise", targets: ["Saywise"]),
-        .executable(name: "SaywiseSmokeTests", targets: ["SaywiseSmokeTests"])
+        .library(name: "ExpressBridgeCore", targets: ["ExpressBridgeCore"]),
+        .executable(name: "ExpressBridge", targets: ["ExpressBridge"]),
+        .executable(name: "ExpressBridgeSmokeTests", targets: ["ExpressBridgeSmokeTests"])
     ],
     targets: [
         .target(
-            name: "SaywiseCore",
-            path: "Sources/SaywiseCore"
+            name: "ExpressBridgeCore",
+            path: "Sources/ExpressBridgeCore"
         ),
         .executableTarget(
-            name: "Saywise",
-            dependencies: ["SaywiseCore"],
-            path: "Sources/Saywise"
+            name: "ExpressBridge",
+            dependencies: ["ExpressBridgeCore"],
+            path: "Sources/ExpressBridge"
         ),
         .executableTarget(
-            name: "SaywiseSmokeTests",
-            dependencies: ["SaywiseCore"],
-            path: "Tests/SaywiseSmokeTests"
+            name: "ExpressBridgeSmokeTests",
+            dependencies: ["ExpressBridgeCore"],
+            path: "Tests/ExpressBridgeSmokeTests"
         )
     ]
 )

@@ -7,13 +7,13 @@ final class SettingsWindowController {
 
     init<Content: View>(rootView: Content) {
         window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 560),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 430),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
 
-        window.title = "Saywise Settings"
+        window.title = "ExpressBridge Settings"
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: rootView)

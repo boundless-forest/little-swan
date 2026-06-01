@@ -1,6 +1,6 @@
 .PHONY: build test run app clean
 
-APP_NAME := Saywise
+APP_NAME := ExpressBridge
 BUILD_CONFIG ?= release
 EXECUTABLE := .build/$(shell uname -m)-apple-macosx/$(BUILD_CONFIG)/$(APP_NAME)
 APP_DIR := $(APP_NAME).app
@@ -12,7 +12,7 @@ build:
 	swift build -c $(BUILD_CONFIG)
 
 test:
-	swift run SaywiseSmokeTests
+	swift run ExpressBridgeSmokeTests
 
 run:
 	swift run $(APP_NAME)
