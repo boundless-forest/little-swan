@@ -84,7 +84,7 @@ struct MainPanelView: View {
     private var inputEditor: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Text("Input")
+                Text("Source")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
@@ -227,7 +227,7 @@ struct MainPanelView: View {
         }
 
         if viewModel.outputText.isEmpty {
-            return "English result will appear here"
+            return "Your English version will appear here"
         }
 
         return viewModel.outputText
