@@ -97,7 +97,6 @@ final class FloatingPanelController {
         let frameSize = panel.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size
         let targetFrame = PanelPlacement.frame(
             frameSize: frameSize,
-            position: configStore.configuration.panelPosition,
             screenFrame: screen.frame,
             visibleFrame: screen.visibleFrame
         )
@@ -112,10 +111,7 @@ final class FloatingPanelController {
     ) -> NSSize {
         let availableWidth = visibleFrame.map { Int($0.width) }
         let availableHeight = visibleFrame.map { max(160, Int($0.height) - PanelPresentation.screenMargin * 2) }
-        let preferredHeight = PanelPresentation.height(
-            layout: configuration.panelLayout,
-            isExpanded: isExpanded
-        )
+        let preferredHeight = PanelPresentation.height(isExpanded: isExpanded)
 
         return NSSize(
             width: PanelPresentation.width(
@@ -130,7 +126,6 @@ final class FloatingPanelController {
 private enum PanelPlacement {
     static func frame(
         frameSize: NSSize,
-        position: PanelPosition,
         screenFrame: NSRect,
         visibleFrame: NSRect,
         dockConfiguration: DockConfiguration = .current
@@ -143,14 +138,7 @@ private enum PanelPlacement {
         )
         let safeFrame = dockAwareFrame.insetBy(dx: margin, dy: margin)
 
-        let preferredX: CGFloat = switch position {
-        case .center:
-            safeFrame.midX - frameSize.width / 2
-        case .bottomLeft:
-            safeFrame.minX
-        case .bottomRight:
-            safeFrame.maxX - frameSize.width
-        }
+        let preferredX = safeFrame.midX - frameSize.width / 2
         let x = clamped(preferredX, lowerBound: safeFrame.minX, upperBound: safeFrame.maxX - frameSize.width)
 
         let y = clamped(
@@ -187,7 +175,7 @@ private enum PanelPlacement {
             frame.size.width = max(0, visibleFrame.maxX - frame.minX)
         case .right:
             // Keep the right edge away from the hidden Dock without moving the origin, so centered
-            // and left-aligned positions continue to use the same coordinate base.
+            // placement continues to use the same coordinate base.
             let visibleDockInset = max(0, screenFrame.maxX - visibleFrame.maxX)
             guard visibleDockInset <= 1 else { break }
             frame.size.width = max(0, screenFrame.maxX - hiddenDockClearance - frame.minX)

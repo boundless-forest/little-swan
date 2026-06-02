@@ -21,9 +21,7 @@ func testDefaultConfigurationUsesDeepSeekFlash() {
     precondition(configuration.provider.apiKey.isEmpty)
     precondition(configuration.debounceMilliseconds == 700)
     precondition(configuration.defaultWritingStyle == .natural)
-    precondition(configuration.panelLayout == .sideBySide)
     precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
-    precondition(configuration.panelPosition == .center)
 }
 
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
@@ -42,9 +40,7 @@ func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.defaultWritingStyle == .natural)
-    precondition(configuration.panelLayout == .sideBySide)
     precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
-    precondition(configuration.panelPosition == .center)
 }
 
 func testPanelPresentationClampsWidthPercentage() {
@@ -59,11 +55,9 @@ func testPanelPresentationUsesPercentageWidth() {
     precondition(PanelPresentation.width(percentage: 90, availableWidth: 600) == 518)
 }
 
-func testPanelPresentationHeightsFollowLayoutAndExpansion() {
-    precondition(PanelPresentation.height(layout: .sideBySide, isExpanded: false) == 210)
-    precondition(PanelPresentation.height(layout: .sideBySide, isExpanded: true) == 420)
-    precondition(PanelPresentation.height(layout: .stacked, isExpanded: false) == 330)
-    precondition(PanelPresentation.height(layout: .stacked, isExpanded: true) == 580)
+func testPanelPresentationHeightsFollowExpansion() {
+    precondition(PanelPresentation.height(isExpanded: false) == 210)
+    precondition(PanelPresentation.height(isExpanded: true) == 420)
 }
 
 func testConfigurationClampsPersistedPanelWidthPercentage() throws {
@@ -77,18 +71,14 @@ func testConfigurationClampsPersistedPanelWidthPercentage() throws {
       },
       "debounceMilliseconds": 700,
       "defaultWritingStyle": "professional",
-      "panelLayout": "stacked",
-      "panelWidthPercentage": 120,
-      "panelPosition": "bottomRight"
+      "panelWidthPercentage": 120
     }
     """.data(using: .utf8)!
 
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: oversizedJSON)
 
     precondition(configuration.defaultWritingStyle == .professional)
-    precondition(configuration.panelLayout == .stacked)
     precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
-    precondition(configuration.panelPosition == .bottomRight)
 }
 
 func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
@@ -102,7 +92,6 @@ func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
       },
       "debounceMilliseconds": 700,
       "defaultWritingStyle": "professional",
-      "panelLayout": "stacked",
       "panelWidth": 860
     }
     """.data(using: .utf8)!
@@ -110,14 +99,12 @@ func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.panelWidthPercentage == 61)
-    precondition(configuration.panelPosition == .center)
 }
 
 func testConfigurationInitializerClampsPanelWidthPercentage() {
-    let configuration = AppConfiguration(panelWidthPercentage: 120, panelPosition: .bottomLeft)
+    let configuration = AppConfiguration(panelWidthPercentage: 120)
 
     precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
-    precondition(configuration.panelPosition == .bottomLeft)
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
@@ -125,7 +112,7 @@ testDefaultConfigurationUsesDeepSeekFlash()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 testPanelPresentationClampsWidthPercentage()
 testPanelPresentationUsesPercentageWidth()
-testPanelPresentationHeightsFollowLayoutAndExpansion()
+testPanelPresentationHeightsFollowExpansion()
 try testConfigurationClampsPersistedPanelWidthPercentage()
 try testConfigurationDecodesLegacyPanelWidthAsPercentage()
 testConfigurationInitializerClampsPanelWidthPercentage()

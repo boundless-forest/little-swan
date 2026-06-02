@@ -1,40 +1,5 @@
 import Foundation
 
-public enum PanelLayout: String, CaseIterable, Codable, Identifiable, Sendable {
-    case sideBySide
-    case stacked
-
-    public var id: String { rawValue }
-
-    public var label: String {
-        switch self {
-        case .sideBySide:
-            "Left and right"
-        case .stacked:
-            "Top and bottom"
-        }
-    }
-}
-
-public enum PanelPosition: String, CaseIterable, Codable, Identifiable, Sendable {
-    case center
-    case bottomLeft
-    case bottomRight
-
-    public var id: String { rawValue }
-
-    public var label: String {
-        switch self {
-        case .center:
-            "Center"
-        case .bottomLeft:
-            "Bottom left"
-        case .bottomRight:
-            "Bottom right"
-        }
-    }
-}
-
 public enum PanelPresentation {
     // Keep geometry constants in core so window sizing and tests use the same contract.
     public static let minimumWidthPercentage = 35
@@ -45,9 +10,7 @@ public enum PanelPresentation {
     public static let screenMargin = 12
 
     public static let compactSideBySideHeight = 210
-    public static let compactStackedHeight = 330
     public static let expandedSideBySideHeight = 420
-    public static let expandedStackedHeight = 580
 
     public static func clampedWidthPercentage(_ preferredPercentage: Int) -> Int {
         min(max(preferredPercentage, minimumWidthPercentage), maximumWidthPercentage)
@@ -75,16 +38,7 @@ public enum PanelPresentation {
         return clampedWidthPercentage(percentage)
     }
 
-    public static func height(layout: PanelLayout, isExpanded: Bool) -> Int {
-        switch (layout, isExpanded) {
-        case (.sideBySide, false):
-            compactSideBySideHeight
-        case (.sideBySide, true):
-            expandedSideBySideHeight
-        case (.stacked, false):
-            compactStackedHeight
-        case (.stacked, true):
-            expandedStackedHeight
-        }
+    public static func height(isExpanded: Bool) -> Int {
+        isExpanded ? expandedSideBySideHeight : compactSideBySideHeight
     }
 }

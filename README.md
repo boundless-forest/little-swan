@@ -11,7 +11,7 @@ The first version supports DeepSeek as a bring-your-own-key writing engine and d
 - Debounced real-time translation and rewriting.
 - Style menu: Natural, Polite, Casual, Professional, Concise.
 - One-click copy for the selected English result with inline feedback.
-- Provider-ready settings page with configurable default writing style, panel layout, and panel width.
+- Provider-ready settings page with configurable default writing style and panel width.
 - DeepSeek API key stored in local app configuration.
 - No translation history.
 

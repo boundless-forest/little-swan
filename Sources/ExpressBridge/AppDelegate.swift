@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController = FloatingPanelController(
             rootView: MainPanelView(
                 viewModel: viewModel,
-                configStore: configStore,
                 openSettings: { [weak self] in self?.showSettings() }
             ),
             configStore: configStore,

@@ -44,7 +44,7 @@ final class ConfigStore: ObservableObject {
             return (try? JSONDecoder().decode(AppConfiguration.self, from: data)) ?? .default
         }
 
-        // Read the pre-rename config as a fallback so users keep their API key and panel preferences.
+        // Read the pre-rename config as a fallback so users keep their API key and panel width.
         // The initializer saves this decoded value into the new ExpressBridge path on first launch.
         guard let data = try? Data(contentsOf: legacyConfigURL()) else {
             return .default

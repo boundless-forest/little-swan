@@ -8,7 +8,7 @@ struct SettingsView: View {
     @State private var didSave = false
     @State private var isAPIKeyVisible = false
     @State private var selectedTab: SettingsTab = .provider
-    @State private var isTabRailExpanded = true
+    @State private var saveFeedbackTask: Task<Void, Never>?
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -22,7 +22,7 @@ struct SettingsView: View {
 
             HStack(alignment: .top, spacing: 0) {
                 tabRail
-                    .frame(width: isTabRailExpanded ? 172 : 52)
+                    .frame(width: 172)
 
                 Divider()
                     .padding(.horizontal, 14)
@@ -42,7 +42,7 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                         .lineLimit(1)
                 } else if didSave {
-                    Text(savedStatusText)
+                    Text("Settings saved")
                         .foregroundStyle(.secondary)
                 }
 
@@ -50,42 +50,32 @@ struct SettingsView: View {
 
                 Button("Reset") {
                     draft = .default
-                    didSave = false
+                    clearSaveFeedback()
                 }
 
                 Button("Save") {
-                    configStore.configuration = draft
-                    configStore.save()
-                    didSave = configStore.lastError == nil
+                    saveDraft()
                 }
+                .disabled(!hasUnsavedChanges)
                 .keyboardShortcut(.defaultAction)
             }
         }
         .padding(22)
         .frame(width: 720, height: 390)
+        .onChange(of: draft) { _, _ in
+            clearSaveFeedback()
+        }
+        .onDisappear {
+            saveFeedbackTask?.cancel()
+        }
     }
 
     private var tabRail: some View {
         VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                if isTabRailExpanded {
-                    Text("Categories")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-
-                Spacer()
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.16)) {
-                        isTabRailExpanded.toggle()
-                    }
-                } label: {
-                    Image(systemName: isTabRailExpanded ? "sidebar.left" : "sidebar.right")
-                }
-                .buttonStyle(.borderless)
-                .help(isTabRailExpanded ? "Collapse tabs" : "Expand tabs")
-            }
+            Text("Categories")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 24)
 
             ForEach(SettingsTab.allCases) { tab in
@@ -104,23 +94,23 @@ struct SettingsView: View {
                 Image(systemName: tab.systemImage)
                     .frame(width: 18)
 
-                if isTabRailExpanded {
-                    Text(tab.label)
-                        .lineLimit(1)
-                    Spacer()
-                }
+                Text(tab.label)
+                    .lineLimit(1)
+
+                Spacer()
             }
             .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
             .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.primary)
             .padding(.horizontal, 8)
             .frame(height: 32)
-            .frame(maxWidth: .infinity, alignment: isTabRailExpanded ? .leading : .center)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 6)
                     .fill(selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear)
             )
         }
         .buttonStyle(.plain)
+        .focusable(false)
         .help(tab.label)
     }
 
@@ -227,26 +217,6 @@ struct SettingsView: View {
     private var panelGroup: some View {
         GroupBox("Panel") {
             VStack(alignment: .leading, spacing: 12) {
-                settingsRow("Layout") {
-                    Picker("Layout", selection: $draft.panelLayout) {
-                        ForEach(PanelLayout.allCases) { layout in
-                            Text(layout.label).tag(layout)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                }
-
-                settingsRow("Position") {
-                    Picker("Position", selection: $draft.panelPosition) {
-                        ForEach(PanelPosition.allCases) { position in
-                            Text(position.label).tag(position)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                }
-
                 settingsRow("Width") {
                     Stepper(
                         "\(draft.panelWidthPercentage)%",
@@ -285,15 +255,36 @@ struct SettingsView: View {
         }
     }
 
-    private var savedStatusText: String {
-        let trimmedKey = draft.provider.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmedKey.isEmpty ? "Saved without API key" : "Saved API key"
+    private var hasUnsavedChanges: Bool {
+        draft != configStore.configuration
+    }
+
+    private func saveDraft() {
+        configStore.configuration = draft
+        configStore.save()
+        didSave = configStore.lastError == nil
+
+        saveFeedbackTask?.cancel()
+        guard didSave else { return }
+
+        saveFeedbackTask = Task {
+            try? await Task.sleep(for: .seconds(2))
+
+            await MainActor.run {
+                didSave = false
+            }
+        }
+    }
+
+    private func clearSaveFeedback() {
+        saveFeedbackTask?.cancel()
+        didSave = false
     }
 
     private func pasteAPIKey() {
         guard let pasted = NSPasteboard.general.string(forType: .string) else { return }
         draft.provider.apiKey = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
-        didSave = false
+        clearSaveFeedback()
     }
 }
 

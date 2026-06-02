@@ -4,24 +4,18 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var provider: ProviderConfiguration
     public var debounceMilliseconds: Int
     public var defaultWritingStyle: WritingStyle
-    public var panelLayout: PanelLayout
     public var panelWidthPercentage: Int
-    public var panelPosition: PanelPosition
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = 700,
         defaultWritingStyle: WritingStyle = .natural,
-        panelLayout: PanelLayout = .sideBySide,
-        panelWidthPercentage: Int = PanelPresentation.defaultWidthPercentage,
-        panelPosition: PanelPosition = .center
+        panelWidthPercentage: Int = PanelPresentation.defaultWidthPercentage
     ) {
         self.provider = provider
         self.debounceMilliseconds = debounceMilliseconds
         self.defaultWritingStyle = defaultWritingStyle
-        self.panelLayout = panelLayout
         self.panelWidthPercentage = PanelPresentation.clampedWidthPercentage(panelWidthPercentage)
-        self.panelPosition = panelPosition
     }
 
     public static let `default` = AppConfiguration()
@@ -30,9 +24,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case provider
         case debounceMilliseconds
         case defaultWritingStyle
-        case panelLayout
         case panelWidthPercentage
-        case panelPosition
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -46,8 +38,6 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
         debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
-        panelLayout = try container.decodeIfPresent(PanelLayout.self, forKey: .panelLayout) ?? .sideBySide
-        panelPosition = try container.decodeIfPresent(PanelPosition.self, forKey: .panelPosition) ?? .center
 
         // Older builds stored an absolute pixel width. Convert it once into the new percentage-based
         // setting so the same config scales sensibly on different displays after the rename.

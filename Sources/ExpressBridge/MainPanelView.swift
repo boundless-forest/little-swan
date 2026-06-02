@@ -3,7 +3,6 @@ import SwiftUI
 
 struct MainPanelView: View {
     @ObservedObject var viewModel: TranslationViewModel
-    @ObservedObject var configStore: ConfigStore
     @FocusState private var isInputFocused: Bool
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
@@ -18,7 +17,7 @@ struct MainPanelView: View {
         VStack(spacing: 10) {
             header
 
-            contentLayout
+            contentColumns
         }
         .padding(.horizontal, 14)
         .padding(.top, 10)
@@ -75,18 +74,10 @@ struct MainPanelView: View {
     }
 
     @ViewBuilder
-    private var contentLayout: some View {
-        switch configStore.configuration.panelLayout {
-        case .sideBySide:
-            HStack(spacing: 10) {
-                inputEditor
-                outputView
-            }
-        case .stacked:
-            VStack(spacing: 10) {
-                inputEditor
-                outputView
-            }
+    private var contentColumns: some View {
+        HStack(spacing: 10) {
+            inputEditor
+            outputView
         }
     }
 
@@ -198,12 +189,7 @@ struct MainPanelView: View {
     }
 
     private var paneHeight: CGFloat {
-        switch configStore.configuration.panelLayout {
-        case .sideBySide:
-            contentHeight
-        case .stacked:
-            (contentHeight - 10) / 2
-        }
+        contentHeight
     }
 
     private var contentHeight: CGFloat {
