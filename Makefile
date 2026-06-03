@@ -23,6 +23,7 @@ app: build
 	cp $(EXECUTABLE) $(MACOS_DIR)/$(APP_NAME)
 	cp Packaging/Info.plist $(CONTENTS_DIR)/Info.plist
 	chmod +x $(MACOS_DIR)/$(APP_NAME)
+	codesign --force --sign - $(APP_DIR)
 
 clean:
 	rm -rf .build $(APP_DIR)

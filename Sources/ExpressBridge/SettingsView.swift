@@ -49,7 +49,7 @@ struct SettingsView: View {
                 Spacer()
 
                 Button("Reset") {
-                    draft = .default
+                    draft = defaultEditableConfiguration
                     clearSaveFeedback()
                 }
 
@@ -121,8 +121,6 @@ struct SettingsView: View {
             providerGroup
         case .translation:
             translationGroup
-        case .panel:
-            panelGroup
         }
     }
 
@@ -214,22 +212,6 @@ struct SettingsView: View {
         }
     }
 
-    private var panelGroup: some View {
-        GroupBox("Panel") {
-            VStack(alignment: .leading, spacing: 12) {
-                settingsRow("Width") {
-                    Stepper(
-                        "\(draft.panelWidthPercentage)%",
-                        value: $draft.panelWidthPercentage,
-                        in: PanelPresentation.minimumWidthPercentage...PanelPresentation.maximumWidthPercentage,
-                        step: 5
-                    )
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
     private func settingsRow<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
@@ -256,11 +238,24 @@ struct SettingsView: View {
     }
 
     private var hasUnsavedChanges: Bool {
-        draft != configStore.configuration
+        draft.provider != configStore.configuration.provider
+            || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
+            || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
+    }
+
+    private var defaultEditableConfiguration: AppConfiguration {
+        AppConfiguration(
+            provider: .deepSeekDefault,
+            debounceMilliseconds: 700,
+            defaultWritingStyle: .natural,
+            panelContentSize: configStore.configuration.panelContentSize
+        )
     }
 
     private func saveDraft() {
-        configStore.configuration = draft
+        var nextConfiguration = draft
+        nextConfiguration.panelContentSize = configStore.configuration.panelContentSize
+        configStore.configuration = nextConfiguration
         configStore.save()
         didSave = configStore.lastError == nil
 
@@ -291,7 +286,6 @@ struct SettingsView: View {
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case provider
     case translation
-    case panel
 
     var id: String { rawValue }
 
@@ -301,8 +295,6 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "Provider"
         case .translation:
             "Translation"
-        case .panel:
-            "Panel"
         }
     }
 
@@ -312,8 +304,6 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "network"
         case .translation:
             "textformat"
-        case .panel:
-            "macwindow"
         }
     }
 }

@@ -21,7 +21,7 @@ func testDefaultConfigurationUsesDeepSeekFlash() {
     precondition(configuration.provider.apiKey.isEmpty)
     precondition(configuration.debounceMilliseconds == 700)
     precondition(configuration.defaultWritingStyle == .natural)
-    precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
+    precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
 }
 
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
@@ -40,27 +40,26 @@ func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.defaultWritingStyle == .natural)
-    precondition(configuration.panelWidthPercentage == PanelPresentation.defaultWidthPercentage)
+    precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
 }
 
-func testPanelPresentationClampsWidthPercentage() {
-    precondition(PanelPresentation.clampedWidthPercentage(20) == PanelPresentation.minimumWidthPercentage)
-    precondition(PanelPresentation.clampedWidthPercentage(120) == PanelPresentation.maximumWidthPercentage)
-    precondition(PanelPresentation.clampedWidthPercentage(65) == 65)
+func testPanelPresentationClampsContentSize() {
+    let clampedSize = PanelPresentation.clampedContentSize(
+        PanelContentSizeConfiguration(width: 100, height: 100),
+        availableWidth: 700,
+        availableHeight: 500
+    )
+
+    precondition(clampedSize.width == PanelPresentation.minimumContentWidth)
+    precondition(clampedSize.height == PanelPresentation.minimumContentHeight)
 }
 
-func testPanelPresentationUsesPercentageWidth() {
+func testPanelPresentationConvertsLegacyPercentageWidth() {
     precondition(PanelPresentation.width(percentage: 60, availableWidth: 1_000) == 586)
-    precondition(PanelPresentation.width(percentage: 35, availableWidth: 600) == 360)
-    precondition(PanelPresentation.width(percentage: 90, availableWidth: 600) == 518)
+    precondition(PanelPresentation.contentSize(widthPercentage: 60).height == PanelPresentation.defaultContentHeight)
 }
 
-func testPanelPresentationHeightsFollowExpansion() {
-    precondition(PanelPresentation.height(isExpanded: false) == 210)
-    precondition(PanelPresentation.height(isExpanded: true) == 420)
-}
-
-func testConfigurationClampsPersistedPanelWidthPercentage() throws {
+func testConfigurationClampsPersistedPanelContentSize() throws {
     let oversizedJSON = """
     {
       "provider": {
@@ -71,17 +70,21 @@ func testConfigurationClampsPersistedPanelWidthPercentage() throws {
       },
       "debounceMilliseconds": 700,
       "defaultWritingStyle": "professional",
-      "panelWidthPercentage": 120
+      "panelContentSize": {
+        "width": 120,
+        "height": 100
+      }
     }
     """.data(using: .utf8)!
 
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: oversizedJSON)
 
     precondition(configuration.defaultWritingStyle == .professional)
-    precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
+    precondition(configuration.panelContentSize.width == PanelPresentation.minimumContentWidth)
+    precondition(configuration.panelContentSize.height == PanelPresentation.minimumContentHeight)
 }
 
-func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
+func testConfigurationDecodesLegacyPanelWidthAsContentSize() throws {
     let legacyJSON = """
     {
       "provider": {
@@ -98,23 +101,47 @@ func testConfigurationDecodesLegacyPanelWidthAsPercentage() throws {
 
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
-    precondition(configuration.panelWidthPercentage == 61)
+    precondition(configuration.panelContentSize.width == 860)
+    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentHeight)
 }
 
-func testConfigurationInitializerClampsPanelWidthPercentage() {
-    let configuration = AppConfiguration(panelWidthPercentage: 120)
+func testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize() throws {
+    let legacyJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "panelWidthPercentage": 120
+    }
+    """.data(using: .utf8)!
 
-    precondition(configuration.panelWidthPercentage == PanelPresentation.maximumWidthPercentage)
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
+
+    precondition(configuration.panelContentSize.width == PanelPresentation.fallbackAvailableWidth - PanelPresentation.screenMargin * 2)
+    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentHeight)
+}
+
+func testConfigurationInitializerClampsPanelContentSize() {
+    let configuration = AppConfiguration(
+        panelContentSize: PanelContentSizeConfiguration(width: 120, height: 100)
+    )
+
+    precondition(configuration.panelContentSize.width == PanelPresentation.minimumContentWidth)
+    precondition(configuration.panelContentSize.height == PanelPresentation.minimumContentHeight)
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testDefaultConfigurationUsesDeepSeekFlash()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
-testPanelPresentationClampsWidthPercentage()
-testPanelPresentationUsesPercentageWidth()
-testPanelPresentationHeightsFollowExpansion()
-try testConfigurationClampsPersistedPanelWidthPercentage()
-try testConfigurationDecodesLegacyPanelWidthAsPercentage()
-testConfigurationInitializerClampsPanelWidthPercentage()
+testPanelPresentationClampsContentSize()
+testPanelPresentationConvertsLegacyPercentageWidth()
+try testConfigurationClampsPersistedPanelContentSize()
+try testConfigurationDecodesLegacyPanelWidthAsContentSize()
+try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()
+testConfigurationInitializerClampsPanelContentSize()
 
 print("ExpressBridge smoke tests passed")

@@ -18,11 +18,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 viewModel: viewModel,
                 openSettings: { [weak self] in self?.showSettings() }
             ),
-            configStore: configStore,
-            viewModel: viewModel
+            configStore: configStore
         )
 
         configureStatusItem()
+        panelController?.show()
     }
 
     private func configureApplicationMenu() {
@@ -49,11 +49,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func configureStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let image = NSImage(
             systemSymbolName: "text.bubble",
             accessibilityDescription: "ExpressBridge"
         )
+        image?.isTemplate = true
+
+        item.button?.image = image
+        item.button?.imagePosition = .imageOnly
         item.button?.target = self
         item.button?.action = #selector(togglePanel)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])

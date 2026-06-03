@@ -16,12 +16,6 @@ final class TranslationViewModel: ObservableObject {
 
     @Published var isLoading = false
     @Published var errorMessage: String?
-    @Published var isPanelExpanded = false
-    // The AppKit window controller owns the final screen-clamped size; SwiftUI reads it here.
-    @Published private(set) var panelContentSize = CGSize(
-        width: PanelPresentation.width(percentage: PanelPresentation.defaultWidthPercentage),
-        height: PanelPresentation.compactSideBySideHeight
-    )
 
     private let configStore: ConfigStore
     private let client: DeepSeekClient
@@ -55,15 +49,6 @@ final class TranslationViewModel: ObservableObject {
 
     func clearInput() {
         inputText = ""
-    }
-
-    func togglePanelExpansion() {
-        isPanelExpanded.toggle()
-    }
-
-    func updatePanelContentSize(_ size: CGSize) {
-        guard panelContentSize != size else { return }
-        panelContentSize = size
     }
 
     func retryNow() {

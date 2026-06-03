@@ -22,7 +22,7 @@ struct MainPanelView: View {
         .padding(.horizontal, 14)
         .padding(.top, 10)
         .padding(.bottom, 14)
-        .frame(width: panelWidth, height: panelHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             isInputFocused = true
         }
@@ -54,14 +54,6 @@ struct MainPanelView: View {
             .pickerStyle(.menu)
             .frame(width: 140)
             .help("Writing style")
-
-            Button {
-                viewModel.togglePanelExpansion()
-            } label: {
-                Image(systemName: expansionIconName)
-            }
-            .buttonStyle(.borderless)
-            .help(viewModel.isPanelExpanded ? "Collapse" : "Expand")
 
             Button {
                 openSettings()
@@ -122,14 +114,13 @@ struct MainPanelView: View {
                 }
             }
         }
-        .frame(height: paneHeight)
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(nsColor: .separatorColor))
         )
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var outputView: some View {
@@ -170,36 +161,13 @@ struct MainPanelView: View {
                     .padding(12)
             }
         }
-        .frame(height: paneHeight)
         .background(Color(nsColor: .textBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .stroke(Color(nsColor: .separatorColor))
         )
-        .frame(maxWidth: .infinity)
-    }
-
-    private var panelWidth: CGFloat {
-        viewModel.panelContentSize.width
-    }
-
-    private var panelHeight: CGFloat {
-        viewModel.panelContentSize.height
-    }
-
-    private var paneHeight: CGFloat {
-        contentHeight
-    }
-
-    private var contentHeight: CGFloat {
-        max(110, panelHeight - 60)
-    }
-
-    private var expansionIconName: String {
-        viewModel.isPanelExpanded
-            ? "arrow.down.right.and.arrow.up.left"
-            : "arrow.up.left.and.arrow.down.right"
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func copyOutput() {

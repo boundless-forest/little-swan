@@ -7,27 +7,24 @@ import SwiftUI
 final class FloatingPanelController {
     private let panel: NSPanel
     private let configStore: ConfigStore
-    private let viewModel: TranslationViewModel
+    private let resizeDelegate: PanelResizeDelegate
     private var cancellables = Set<AnyCancellable>()
 
     init<Content: View>(
         rootView: Content,
-        configStore: ConfigStore,
-        viewModel: TranslationViewModel
+        configStore: ConfigStore
     ) {
         self.configStore = configStore
-        self.viewModel = viewModel
+        resizeDelegate = PanelResizeDelegate(configStore: configStore)
 
         let initialSize = Self.contentSize(
             configuration: configStore.configuration,
-            isExpanded: viewModel.isPanelExpanded,
             visibleFrame: NSScreen.main?.visibleFrame
         )
-        viewModel.updatePanelContentSize(initialSize)
 
         panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
-            styleMask: [.titled, .closable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
@@ -40,9 +37,14 @@ final class FloatingPanelController {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
+        panel.contentMinSize = NSSize(
+            width: PanelPresentation.minimumContentWidth,
+            height: PanelPresentation.minimumContentHeight
+        )
+        panel.delegate = resizeDelegate
         panel.contentView = NSHostingView(rootView: rootView)
 
-        observePanelPreferences()
+        observeScreenChanges()
     }
 
     func toggle() {
@@ -59,22 +61,7 @@ final class FloatingPanelController {
         panel.makeKeyAndOrderFront(nil)
     }
 
-    private func observePanelPreferences() {
-        configStore.$configuration
-            .dropFirst()
-            .sink { [weak self] _ in
-                self?.applyPreferredFrame(animated: self?.panel.isVisible == true)
-            }
-            .store(in: &cancellables)
-
-        viewModel.$isPanelExpanded
-            .dropFirst()
-            .removeDuplicates()
-            .sink { [weak self] _ in
-                self?.applyPreferredFrame(animated: self?.panel.isVisible == true)
-            }
-            .store(in: &cancellables)
-
+    private func observeScreenChanges() {
         NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in
                 self?.applyPreferredFrame(animated: self?.panel.isVisible == true)
@@ -86,13 +73,11 @@ final class FloatingPanelController {
         guard let screen = panel.screen ?? NSScreen.main else { return }
 
         // Recompute from the active screen each time because users can move between displays,
-        // resize the Dock, or change panel preferences while the window is already visible.
+        // resize the Dock, or reopen the panel after resizing it manually.
         let contentSize = Self.contentSize(
             configuration: configStore.configuration,
-            isExpanded: viewModel.isPanelExpanded,
             visibleFrame: screen.visibleFrame
         )
-        viewModel.updatePanelContentSize(contentSize)
 
         let frameSize = panel.frameRect(forContentRect: NSRect(origin: .zero, size: contentSize)).size
         let targetFrame = PanelPlacement.frame(
@@ -106,20 +91,51 @@ final class FloatingPanelController {
 
     private static func contentSize(
         configuration: AppConfiguration,
-        isExpanded: Bool,
         visibleFrame: NSRect?
     ) -> NSSize {
         let availableWidth = visibleFrame.map { Int($0.width) }
-        let availableHeight = visibleFrame.map { max(160, Int($0.height) - PanelPresentation.screenMargin * 2) }
-        let preferredHeight = PanelPresentation.height(isExpanded: isExpanded)
+        let availableHeight = visibleFrame.map {
+            max(PanelPresentation.minimumContentHeight, Int($0.height) - PanelPresentation.windowFrameHeightReserve)
+        }
+        let clampedSize = PanelPresentation.clampedContentSize(
+            configuration.panelContentSize,
+            availableWidth: availableWidth,
+            availableHeight: availableHeight
+        )
 
         return NSSize(
-            width: PanelPresentation.width(
-                percentage: configuration.panelWidthPercentage,
-                availableWidth: availableWidth
-            ),
-            height: min(preferredHeight, availableHeight ?? preferredHeight)
+            width: clampedSize.width,
+            height: clampedSize.height
         )
+    }
+}
+
+@MainActor
+private final class PanelResizeDelegate: NSObject, NSWindowDelegate {
+    private let configStore: ConfigStore
+
+    init(configStore: ConfigStore) {
+        self.configStore = configStore
+    }
+
+    func windowDidEndLiveResize(_ notification: Notification) {
+        guard let panel = notification.object as? NSPanel else { return }
+
+        let contentSize = panel.contentRect(forFrameRect: panel.frame).size
+        let persistedSize = PanelPresentation.clampedContentSize(
+            PanelContentSizeConfiguration(
+                width: Int(contentSize.width.rounded()),
+                height: Int(contentSize.height.rounded())
+            ),
+            availableWidth: panel.screen.map { Int($0.visibleFrame.width) },
+            availableHeight: panel.screen.map {
+                max(PanelPresentation.minimumContentHeight, Int($0.visibleFrame.height) - PanelPresentation.windowFrameHeightReserve)
+            }
+        )
+
+        guard configStore.configuration.panelContentSize != persistedSize else { return }
+        configStore.configuration.panelContentSize = persistedSize
+        configStore.save()
     }
 }
 
