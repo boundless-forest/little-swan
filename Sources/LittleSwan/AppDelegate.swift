@@ -50,11 +50,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        let image = NSImage(
-            systemSymbolName: "text.bubble",
-            accessibilityDescription: "Little Swan"
-        )
-        image?.isTemplate = true
+        let image = statusBarIcon()
 
         item.button?.image = image
         item.button?.imagePosition = .imageOnly
@@ -62,6 +58,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.action = #selector(togglePanel)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
+    }
+
+    private func statusBarIcon() -> NSImage? {
+        let sourceImage = NSImage(named: "LittleSwan") ?? NSApp.applicationIconImage
+        guard let image = sourceImage?.copy() as? NSImage else { return nil }
+
+        image.size = NSSize(width: 18, height: 18)
+        image.isTemplate = false
+        image.accessibilityDescription = "Little Swan"
+        return image
     }
 
     @objc private func togglePanel(_ sender: NSStatusBarButton) {

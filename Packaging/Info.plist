@@ -8,6 +8,8 @@
 	<string>LittleSwan</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.bearwang.littleswan</string>
+	<key>CFBundleIconFile</key>
+	<string>LittleSwan</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>

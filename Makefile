@@ -23,6 +23,7 @@ app: build
 	mkdir -p "$(MACOS_DIR)" "$(RESOURCES_DIR)"
 	cp "$(EXECUTABLE)" "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	cp Packaging/Info.plist "$(CONTENTS_DIR)/Info.plist"
+	cp Design/LittleSwan.icns "$(RESOURCES_DIR)/LittleSwan.icns"
 	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	codesign --force --sign - "$(APP_DIR)"
 

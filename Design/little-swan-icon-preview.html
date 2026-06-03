@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Little Swan Icon Preview</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f5f8fc;
+      --ink: #102033;
+      --muted: #667085;
+      --card: #ffffff;
+      --line: #dce7f3;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #07111f; --ink: #f2f7ff; --muted: #9aa8ba; --card: #0d1a2a; --line: #22344c; }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, rgba(10,132,255,.16), transparent 38%), var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(920px, calc(100vw - 40px));
+      display: grid;
+      gap: 28px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 36px;
+      align-items: center;
+      padding: 36px;
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: color-mix(in srgb, var(--card) 92%, transparent);
+      box-shadow: 0 24px 70px rgba(7, 87, 216, .14);
+    }
+    .hero img {
+      width: 280px;
+      height: 280px;
+      display: block;
+      border-radius: 28px;
+    }
+    h1 { margin: 0 0 12px; font-size: clamp(34px, 6vw, 64px); letter-spacing: -0.055em; line-height: .95; }
+    p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.55; max-width: 42rem; }
+    .sizes {
+      display: flex;
+      gap: 24px;
+      align-items: end;
+      flex-wrap: wrap;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: color-mix(in srgb, var(--card) 86%, transparent);
+    }
+    .sample { display: grid; gap: 10px; justify-items: center; color: var(--muted); font-size: 13px; }
+    .sample img { display: block; }
+    .s128 { width: 128px; height: 128px; }
+    .s64 { width: 64px; height: 64px; }
+    .s32 { width: 32px; height: 32px; }
+    .s18 { width: 18px; height: 18px; }
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; padding: 24px; }
+      .hero img { width: min(240px, 100%); height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero" aria-label="Little Swan icon preview">
+      <img src="little-swan-icon.svg" alt="Little Swan icon: white handwritten LS monogram on a blue rounded square" />
+      <div>
+        <h1>Little Swan</h1>
+        <p>A minimalist blue icon using only the initials “L” and “S” as an elegant handwritten monogram. The mark keeps the existing blue gradient background while simplifying the app identity for Dock and menu-bar sizes.</p>
+      </div>
+    </section>
+    <section class="sizes" aria-label="Icon size checks">
+      <div class="sample"><img class="s128" src="little-swan-icon.svg" alt="128px preview" /><span>128</span></div>
+      <div class="sample"><img class="s64" src="little-swan-icon.svg" alt="64px preview" /><span>64</span></div>
+      <div class="sample"><img class="s32" src="little-swan-icon.svg" alt="32px preview" /><span>32</span></div>
+      <div class="sample"><img class="s18" src="little-swan-icon.svg" alt="18px preview" /><span>18</span></div>
+    </section>
+  </main>
+</body>
+</html>
