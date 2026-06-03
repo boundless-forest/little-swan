@@ -13,7 +13,7 @@ final class SettingsWindowController {
             defer: false
         )
 
-        window.title = "ExpressBridge Settings"
+        window.title = "Little Swan Settings"
         window.isReleasedWhenClosed = false
         window.center()
         window.contentView = NSHostingView(rootView: rootView)

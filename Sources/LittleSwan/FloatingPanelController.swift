@@ -1,6 +1,6 @@
 import AppKit
 import Combine
-import ExpressBridgeCore
+import LittleSwanCore
 import SwiftUI
 
 @MainActor
@@ -29,7 +29,7 @@ final class FloatingPanelController {
             defer: false
         )
 
-        panel.title = "ExpressBridge"
+        panel.title = "Little Swan"
         panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true

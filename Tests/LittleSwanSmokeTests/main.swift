@@ -1,5 +1,5 @@
 import Foundation
-import ExpressBridgeCore
+import LittleSwanCore
 
 func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
     let messages = PromptBuilder.messages(input: "这个功能以后会支持吗？", style: .natural)
@@ -144,4 +144,4 @@ try testConfigurationDecodesLegacyPanelWidthAsContentSize()
 try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()
 testConfigurationInitializerClampsPanelContentSize()
 
-print("ExpressBridge smoke tests passed")
+print("Little Swan smoke tests passed")

@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 import Foundation
-import ExpressBridgeCore
+import LittleSwanCore
 
 @MainActor
 final class TranslationViewModel: ObservableObject {

@@ -1,5 +1,5 @@
 import AppKit
-import ExpressBridgeCore
+import LittleSwanCore
 import SwiftUI
 
 struct SettingsView: View {

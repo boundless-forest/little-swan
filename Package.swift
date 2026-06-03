@@ -3,29 +3,29 @@
 import PackageDescription
 
 let package = Package(
-    name: "ExpressBridge",
+    name: "LittleSwan",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .library(name: "ExpressBridgeCore", targets: ["ExpressBridgeCore"]),
-        .executable(name: "ExpressBridge", targets: ["ExpressBridge"]),
-        .executable(name: "ExpressBridgeSmokeTests", targets: ["ExpressBridgeSmokeTests"])
+        .library(name: "LittleSwanCore", targets: ["LittleSwanCore"]),
+        .executable(name: "LittleSwan", targets: ["LittleSwan"]),
+        .executable(name: "LittleSwanSmokeTests", targets: ["LittleSwanSmokeTests"])
     ],
     targets: [
         .target(
-            name: "ExpressBridgeCore",
-            path: "Sources/ExpressBridgeCore"
+            name: "LittleSwanCore",
+            path: "Sources/LittleSwanCore"
         ),
         .executableTarget(
-            name: "ExpressBridge",
-            dependencies: ["ExpressBridgeCore"],
-            path: "Sources/ExpressBridge"
+            name: "LittleSwan",
+            dependencies: ["LittleSwanCore"],
+            path: "Sources/LittleSwan"
         ),
         .executableTarget(
-            name: "ExpressBridgeSmokeTests",
-            dependencies: ["ExpressBridgeCore"],
-            path: "Tests/ExpressBridgeSmokeTests"
+            name: "LittleSwanSmokeTests",
+            dependencies: ["LittleSwanCore"],
+            path: "Tests/LittleSwanSmokeTests"
         )
     ]
 )

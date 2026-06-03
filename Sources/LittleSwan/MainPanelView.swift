@@ -1,4 +1,4 @@
-import ExpressBridgeCore
+import LittleSwanCore
 import SwiftUI
 
 struct MainPanelView: View {

@@ -1,6 +1,6 @@
 import Combine
 import Foundation
-import ExpressBridgeCore
+import LittleSwanCore
 
 @MainActor
 final class ConfigStore: ObservableObject {
@@ -13,8 +13,8 @@ final class ConfigStore: ObservableObject {
         self.fileURL = fileURL
         configuration = Self.load(from: fileURL)
 
-        // Preserve existing users' settings after the app was renamed from Saywise.
-        if !Self.configExists(at: fileURL), Self.configExists(at: Self.legacyConfigURL()) {
+        // Preserve existing users' settings after the app was renamed.
+        if !Self.configExists(at: fileURL), Self.decodedMigrationConfiguration() != nil {
             save()
         }
     }
@@ -44,17 +44,34 @@ final class ConfigStore: ObservableObject {
             return (try? JSONDecoder().decode(AppConfiguration.self, from: data)) ?? .default
         }
 
-        // Read the pre-rename config as a fallback so users keep their API key and panel size.
-        // The initializer saves this decoded value into the new ExpressBridge path on first launch.
-        guard let data = try? Data(contentsOf: legacyConfigURL()) else {
-            return .default
-        }
+        return decodedMigrationConfiguration() ?? .default
+    }
 
-        return (try? JSONDecoder().decode(AppConfiguration.self, from: data)) ?? .default
+    private static func decodedMigrationConfiguration() -> AppConfiguration? {
+        migrationConfigURLs().lazy.compactMap { migrationURL in
+            guard let data = try? Data(contentsOf: migrationURL) else {
+                return nil
+            }
+
+            return try? JSONDecoder().decode(AppConfiguration.self, from: data)
+        }.first
     }
 
     private static func configExists(at fileURL: URL) -> Bool {
         FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    private static func migrationConfigURLs() -> [URL] {
+        let supportURL = FileManager.default.urls(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask
+        )[0]
+
+        return ["ExpressBridge", "Saywise"].map { appName in
+            supportURL
+                .appending(path: appName, directoryHint: .isDirectory)
+                .appending(path: "config.json")
+        }
     }
 
     private static func defaultConfigURL() -> URL {
@@ -64,18 +81,8 @@ final class ConfigStore: ObservableObject {
         )[0]
 
         return supportURL
-            .appending(path: "ExpressBridge", directoryHint: .isDirectory)
+            .appending(path: "Little Swan", directoryHint: .isDirectory)
             .appending(path: "config.json")
     }
 
-    private static func legacyConfigURL() -> URL {
-        let supportURL = FileManager.default.urls(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask
-        )[0]
-
-        return supportURL
-            .appending(path: "Saywise", directoryHint: .isDirectory)
-            .appending(path: "config.json")
-    }
 }

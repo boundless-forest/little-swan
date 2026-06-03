@@ -1,6 +1,6 @@
-# ExpressBridge
+# Little Swan
 
-ExpressBridge is a native macOS menu bar app for turning text from any language into natural English.
+Little Swan is a native macOS menu bar app for turning text from any language into natural English.
 
 The first version supports DeepSeek as a bring-your-own-key writing engine and defaults to `deepseek-v4-flash`.
 
@@ -20,19 +20,19 @@ The first version supports DeepSeek as a bring-your-own-key writing engine and d
 
 ```sh
 swift build
-swift run ExpressBridgeSmokeTests
-swift run ExpressBridge
+swift run LittleSwanSmokeTests
+swift run LittleSwan
 ```
 
 ## App Bundle
 
 ```sh
 make app
-open ExpressBridge.app
+open "Little Swan.app"
 ```
 
 The app configuration is stored at:
 
 ```txt
-~/Library/Application Support/ExpressBridge/config.json
+~/Library/Application Support/Little Swan/config.json
 ```

@@ -1,8 +1,9 @@
 .PHONY: build test run app clean
 
-APP_NAME := ExpressBridge
+APP_NAME := Little Swan
+EXECUTABLE_NAME := LittleSwan
 BUILD_CONFIG ?= release
-EXECUTABLE := .build/$(shell uname -m)-apple-macosx/$(BUILD_CONFIG)/$(APP_NAME)
+EXECUTABLE := .build/$(shell uname -m)-apple-macosx/$(BUILD_CONFIG)/$(EXECUTABLE_NAME)
 APP_DIR := $(APP_NAME).app
 CONTENTS_DIR := $(APP_DIR)/Contents
 MACOS_DIR := $(CONTENTS_DIR)/MacOS
@@ -12,18 +13,18 @@ build:
 	swift build -c $(BUILD_CONFIG)
 
 test:
-	swift run ExpressBridgeSmokeTests
+	swift run LittleSwanSmokeTests
 
 run:
-	swift run $(APP_NAME)
+	swift run $(EXECUTABLE_NAME)
 
 app: build
-	rm -rf $(APP_DIR)
-	mkdir -p $(MACOS_DIR) $(RESOURCES_DIR)
-	cp $(EXECUTABLE) $(MACOS_DIR)/$(APP_NAME)
-	cp Packaging/Info.plist $(CONTENTS_DIR)/Info.plist
-	chmod +x $(MACOS_DIR)/$(APP_NAME)
-	codesign --force --sign - $(APP_DIR)
+	rm -rf "$(APP_DIR)"
+	mkdir -p "$(MACOS_DIR)" "$(RESOURCES_DIR)"
+	cp "$(EXECUTABLE)" "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
+	cp Packaging/Info.plist "$(CONTENTS_DIR)/Info.plist"
+	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
+	codesign --force --sign - "$(APP_DIR)"
 
 clean:
-	rm -rf .build $(APP_DIR)
+	rm -rf .build "$(APP_DIR)"

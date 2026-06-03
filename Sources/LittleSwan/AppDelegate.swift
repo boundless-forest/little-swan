@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
-        let quitItem = NSMenuItem(title: "Quit ExpressBridge", action: #selector(quit), keyEquivalent: "q")
+        let quitItem = NSMenuItem(title: "Quit Little Swan", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         appMenu.addItem(quitItem)
         appMenuItem.submenu = appMenu
@@ -52,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let image = NSImage(
             systemSymbolName: "text.bubble",
-            accessibilityDescription: "ExpressBridge"
+            accessibilityDescription: "Little Swan"
         )
         image?.isTemplate = true
 
@@ -75,10 +75,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showStatusMenu() {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Open ExpressBridge", action: #selector(openPanel), keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Open Little Swan", action: #selector(openPanel), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ExpressBridge", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Little Swan", action: #selector(quit), keyEquivalent: "q"))
 
         for item in menu.items {
             item.target = self

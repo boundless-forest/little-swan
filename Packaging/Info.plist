@@ -5,13 +5,13 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleExecutable</key>
-	<string>ExpressBridge</string>
+	<string>LittleSwan</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.bearwang.expressbridge</string>
+	<string>com.bearwang.littleswan</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>ExpressBridge</string>
+	<string>Little Swan</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
