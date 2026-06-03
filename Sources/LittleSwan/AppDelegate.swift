@@ -3,6 +3,9 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let statusBarIconSize = NSSize(width: 18, height: 18)
+    private static let statusBarTemplateIconName = "LittleSwanMenuBarTemplate"
+
     private var statusItem: NSStatusItem?
     private var panelController: FloatingPanelController?
     private var settingsController: SettingsWindowController?
@@ -61,11 +64,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func statusBarIcon() -> NSImage? {
-        let sourceImage = NSImage(named: "LittleSwan") ?? NSApp.applicationIconImage
+        let templateURL = Bundle.main.url(
+            forResource: Self.statusBarTemplateIconName,
+            withExtension: "png"
+        )
+        let sourceImage = templateURL.flatMap(NSImage.init(contentsOf:))
+            ?? NSImage(named: "LittleSwan")
+            ?? NSApp.applicationIconImage
         guard let image = sourceImage?.copy() as? NSImage else { return nil }
 
-        image.size = NSSize(width: 18, height: 18)
-        image.isTemplate = false
+        image.size = Self.statusBarIconSize
+        image.isTemplate = true
         image.accessibilityDescription = "Little Swan"
         return image
     }

@@ -2,6 +2,7 @@
 
 APP_NAME := Little Swan
 EXECUTABLE_NAME := LittleSwan
+MENUBAR_TEMPLATE_ICON := LittleSwanMenuBarTemplate.png
 BUILD_CONFIG ?= release
 EXECUTABLE := .build/$(shell uname -m)-apple-macosx/$(BUILD_CONFIG)/$(EXECUTABLE_NAME)
 APP_DIR := $(APP_NAME).app
@@ -24,6 +25,7 @@ app: build
 	cp "$(EXECUTABLE)" "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	cp Packaging/Info.plist "$(CONTENTS_DIR)/Info.plist"
 	cp Design/LittleSwan.icns "$(RESOURCES_DIR)/LittleSwan.icns"
+	cp Design/little-swan-menubar-template.png "$(RESOURCES_DIR)/$(MENUBAR_TEMPLATE_ICON)"
 	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	codesign --force --sign - "$(APP_DIR)"
 

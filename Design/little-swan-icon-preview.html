@@ -12,9 +12,11 @@
       --muted: #667085;
       --card: #ffffff;
       --line: #dce7f3;
+      --checker-a: rgba(10, 132, 255, .08);
+      --checker-b: rgba(7, 87, 216, .04);
     }
     @media (prefers-color-scheme: dark) {
-      :root { --bg: #07111f; --ink: #f2f7ff; --muted: #9aa8ba; --card: #0d1a2a; --line: #22344c; }
+      :root { --bg: #07111f; --ink: #f2f7ff; --muted: #9aa8ba; --card: #0d1a2a; --line: #22344c; --checker-a: rgba(255,255,255,.08); --checker-b: rgba(255,255,255,.03); }
     }
     * { box-sizing: border-box; }
     body {
@@ -42,11 +44,26 @@
       background: color-mix(in srgb, var(--card) 92%, transparent);
       box-shadow: 0 24px 70px rgba(7, 87, 216, .14);
     }
-    .hero img {
+    .icon-stage {
       width: 280px;
       height: 280px;
-      display: block;
+      display: grid;
+      place-items: center;
       border-radius: 28px;
+      background-image:
+        linear-gradient(45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(-45deg, var(--checker-a) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--checker-a) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--checker-a) 75%);
+      background-size: 28px 28px;
+      background-position: 0 0, 0 14px, 14px -14px, -14px 0;
+      background-color: var(--checker-b);
+    }
+    .hero img {
+      width: 260px;
+      height: 260px;
+      display: block;
+      object-fit: contain;
     }
     h1 { margin: 0 0 12px; font-size: clamp(34px, 6vw, 64px); letter-spacing: -0.055em; line-height: .95; }
     p { margin: 0; color: var(--muted); font-size: 17px; line-height: 1.55; max-width: 42rem; }
@@ -61,24 +78,51 @@
       background: color-mix(in srgb, var(--card) 86%, transparent);
     }
     .sample { display: grid; gap: 10px; justify-items: center; color: var(--muted); font-size: 13px; }
-    .sample img { display: block; }
+    .sample img { display: block; object-fit: contain; }
     .s128 { width: 128px; height: 128px; }
     .s64 { width: 64px; height: 64px; }
     .s32 { width: 32px; height: 32px; }
     .s18 { width: 18px; height: 18px; }
+    .menubar {
+      display: grid;
+      gap: 14px;
+      padding: 18px 24px 24px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: color-mix(in srgb, var(--card) 86%, transparent);
+    }
+    .menubar h2 { margin: 0; font-size: 16px; letter-spacing: -.01em; }
+    .menu-strip {
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid #d7d7d7;
+      border-radius: 8px;
+      background: #f7f7f7;
+      color: #111;
+      box-shadow: 0 8px 24px rgba(16, 24, 40, .08);
+      font-size: 12px;
+    }
+    .menu-strip img { width: 18px; height: 18px; display: block; }
     @media (max-width: 720px) {
       .hero { grid-template-columns: 1fr; padding: 24px; }
-      .hero img { width: min(240px, 100%); height: auto; }
+      .icon-stage { width: min(240px, 100%); height: auto; aspect-ratio: 1; }
+      .hero img { width: 92%; height: 92%; }
     }
   </style>
 </head>
 <body>
   <main>
     <section class="hero" aria-label="Little Swan icon preview">
-      <img src="little-swan-icon.svg" alt="Little Swan icon: white handwritten LS monogram on a blue rounded square" />
+      <div class="icon-stage">
+        <img src="little-swan-icon.svg" alt="Little Swan logo: minimalist blue swan in flight" />
+      </div>
       <div>
         <h1>Little Swan</h1>
-        <p>A minimalist blue icon using only the initials “L” and “S” as an elegant handwritten monogram. The mark keeps the existing blue gradient background while simplifying the app identity for Dock and menu-bar sizes.</p>
+        <p>A minimalist blue swan logo in flight, imported from the final ChatGPT image-model design. The colorful transparent PNG is used for the app icon, while the menu bar uses a larger black template SVG/PNG mask so AppKit can render it in the native menu-bar style.</p>
       </div>
     </section>
     <section class="sizes" aria-label="Icon size checks">
@@ -86,6 +130,14 @@
       <div class="sample"><img class="s64" src="little-swan-icon.svg" alt="64px preview" /><span>64</span></div>
       <div class="sample"><img class="s32" src="little-swan-icon.svg" alt="32px preview" /><span>32</span></div>
       <div class="sample"><img class="s18" src="little-swan-icon.svg" alt="18px preview" /><span>18</span></div>
+    </section>
+    <section class="menubar" aria-label="Menu bar template icon preview">
+      <h2>Menu bar template preview</h2>
+      <div class="menu-strip">
+        <span>Little Swan</span>
+        <img src="little-swan-menubar-template.svg" alt="18px black Little Swan menu bar template icon" />
+        <span>Wed 3:03 PM</span>
+      </div>
     </section>
   </main>
 </body>
