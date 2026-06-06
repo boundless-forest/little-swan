@@ -7,3 +7,6 @@ Package.resolved
 *.xcuserdata/
 *.xcuserstate
 *.swp
+__pycache__/
+*.pyc
+Design/generated-previews/

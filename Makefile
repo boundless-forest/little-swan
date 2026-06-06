@@ -1,4 +1,4 @@
-.PHONY: build test run app clean
+.PHONY: build test run app logo-assets clean
 
 APP_NAME := Little Swan
 EXECUTABLE_NAME := LittleSwan
@@ -28,6 +28,9 @@ app: build
 	cp Design/little-swan-menubar-template.png "$(RESOURCES_DIR)/$(MENUBAR_TEMPLATE_ICON)"
 	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	codesign --force --sign - "$(APP_DIR)"
+
+logo-assets:
+	python3 Design/generate_logo_assets.py
 
 clean:
 	rm -rf .build "$(APP_DIR)"

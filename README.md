@@ -24,6 +24,12 @@ swift run LittleSwanSmokeTests
 swift run LittleSwan
 ```
 
+Regenerate the app icon, `.icns`, and menu bar template icon from the checked-in Google Stitch reference:
+
+```sh
+make logo-assets
+```
+
 ## App Bundle
 
 ```sh

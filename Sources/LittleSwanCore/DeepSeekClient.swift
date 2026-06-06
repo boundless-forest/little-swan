@@ -1,4 +1,8 @@
+// File overview: Calls the DeepSeek chat completions API for Little Swan text rewriting.
 import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 
 public enum DeepSeekClientError: LocalizedError, Equatable {
     case missingAPIKey
