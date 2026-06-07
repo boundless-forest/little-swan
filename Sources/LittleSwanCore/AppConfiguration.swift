@@ -5,17 +5,20 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var debounceMilliseconds: Int
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
+    public var sourceEnglishLayout: SourceEnglishLayout
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = 700,
         defaultWritingStyle: WritingStyle = .natural,
-        panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize
+        panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
+        sourceEnglishLayout: SourceEnglishLayout = .horizontal
     ) {
         self.provider = provider
         self.debounceMilliseconds = debounceMilliseconds
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
+        self.sourceEnglishLayout = sourceEnglishLayout
     }
 
     public static let `default` = AppConfiguration()
@@ -25,6 +28,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case debounceMilliseconds
         case defaultWritingStyle
         case panelContentSize
+        case sourceEnglishLayout
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -39,6 +43,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
         debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
+        sourceEnglishLayout = try container.decodeIfPresent(SourceEnglishLayout.self, forKey: .sourceEnglishLayout) ?? .horizontal
 
         if let contentSize = try container.decodeIfPresent(
             PanelContentSizeConfiguration.self,

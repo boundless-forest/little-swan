@@ -67,9 +67,17 @@ struct MainPanelView: View {
 
     @ViewBuilder
     private var contentColumns: some View {
-        HStack(spacing: 10) {
-            inputEditor
-            outputView
+        switch viewModel.sourceEnglishLayout {
+        case .horizontal:
+            HStack(spacing: 10) {
+                inputEditor
+                outputView
+            }
+        case .vertical:
+            VStack(spacing: 10) {
+                inputEditor
+                outputView
+            }
         }
     }
 

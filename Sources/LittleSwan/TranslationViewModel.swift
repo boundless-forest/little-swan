@@ -13,6 +13,7 @@ final class TranslationViewModel: ObservableObject {
     @Published var selectedStyle: WritingStyle {
         didSet { scheduleTranslation() }
     }
+    @Published private(set) var sourceEnglishLayout: SourceEnglishLayout
 
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -29,12 +30,21 @@ final class TranslationViewModel: ObservableObject {
         self.configStore = configStore
         self.client = client
         selectedStyle = configStore.configuration.defaultWritingStyle
+        sourceEnglishLayout = configStore.configuration.sourceEnglishLayout
 
         configStore.$configuration
             .map(\.defaultWritingStyle)
             .removeDuplicates()
             .sink { [weak self] style in
                 self?.selectedStyle = style
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.sourceEnglishLayout)
+            .removeDuplicates()
+            .sink { [weak self] layout in
+                self?.sourceEnglishLayout = layout
             }
             .store(in: &cancellables)
     }

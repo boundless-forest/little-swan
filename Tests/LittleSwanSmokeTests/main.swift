@@ -22,6 +22,12 @@ func testDefaultConfigurationUsesDeepSeekFlash() {
     precondition(configuration.debounceMilliseconds == 700)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
+    precondition(configuration.sourceEnglishLayout == .horizontal)
+}
+
+func testSourceEnglishLayoutLabelsAreUserFacing() {
+    precondition(SourceEnglishLayout.horizontal.label == "Horizontal")
+    precondition(SourceEnglishLayout.vertical.label == "Vertical")
 }
 
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
@@ -41,6 +47,26 @@ func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
 
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
+    precondition(configuration.sourceEnglishLayout == .horizontal)
+}
+
+func testConfigurationDecodesPersistedVerticalSourceEnglishLayout() throws {
+    let persistedJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "sourceEnglishLayout": "vertical"
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
+
+    precondition(configuration.sourceEnglishLayout == .vertical)
 }
 
 func testPanelPresentationClampsContentSize() {
@@ -136,7 +162,9 @@ func testConfigurationInitializerClampsPanelContentSize() {
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testDefaultConfigurationUsesDeepSeekFlash()
+testSourceEnglishLayoutLabelsAreUserFacing()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
+try testConfigurationDecodesPersistedVerticalSourceEnglishLayout()
 testPanelPresentationClampsContentSize()
 testPanelPresentationConvertsLegacyPercentageWidth()
 try testConfigurationClampsPersistedPanelContentSize()

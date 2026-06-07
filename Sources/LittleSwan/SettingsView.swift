@@ -61,7 +61,7 @@ struct SettingsView: View {
             }
         }
         .padding(22)
-        .frame(width: 720, height: 390)
+        .frame(width: 760, height: 390)
         .onChange(of: draft) { _, _ in
             clearSaveFeedback()
         }
@@ -207,6 +207,17 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                 }
+
+                settingsRow("Source/English layout") {
+                    Picker("Source/English layout", selection: $draft.sourceEnglishLayout) {
+                        ForEach(SourceEnglishLayout.allCases) { layout in
+                            Text(layout.label).tag(layout)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .help("Choose whether Source and English appear side by side or stacked.")
+                }
             }
             .padding(.vertical, 4)
         }
@@ -219,7 +230,7 @@ struct SettingsView: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(title)
                 .foregroundStyle(.secondary)
-                .frame(width: 94, alignment: .leading)
+                .frame(width: 132, alignment: .leading)
 
             content()
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -241,6 +252,7 @@ struct SettingsView: View {
         draft.provider != configStore.configuration.provider
             || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
             || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
+            || draft.sourceEnglishLayout != configStore.configuration.sourceEnglishLayout
     }
 
     private var defaultEditableConfiguration: AppConfiguration {
@@ -248,7 +260,8 @@ struct SettingsView: View {
             provider: .deepSeekDefault,
             debounceMilliseconds: 700,
             defaultWritingStyle: .natural,
-            panelContentSize: configStore.configuration.panelContentSize
+            panelContentSize: configStore.configuration.panelContentSize,
+            sourceEnglishLayout: .horizontal
         )
     }
 
