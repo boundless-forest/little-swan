@@ -167,7 +167,7 @@ struct SettingsView: View {
 
                 settingsRow("Model") {
                     Picker("Model", selection: $draft.provider.model) {
-                        Text("deepseek-v4-flash").tag("deepseek-v4-flash")
+                        Text("deepseek-v4-pro").tag("deepseek-v4-pro")
                     }
                     .disabled(true)
                     .labelsHidden()

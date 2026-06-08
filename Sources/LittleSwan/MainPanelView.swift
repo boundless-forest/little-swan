@@ -106,11 +106,23 @@ struct MainPanelView: View {
             Divider()
 
             ZStack(alignment: .topLeading) {
-                TextEditor(text: $viewModel.inputText)
-                    .font(.system(size: 14))
-                    .focused($isInputFocused)
-                    .scrollContentBackground(.hidden)
-                    .padding(editorContentPadding)
+                SourceCompletionTextView(
+                    text: $viewModel.inputText,
+                    sourceSuggestion: viewModel.sourceSuggestion,
+                    onEditorStateChange: { text, selectedRange, hasMarkedText in
+                        viewModel.updateSourceEditorState(
+                            text: text,
+                            selectedRange: selectedRange,
+                            hasMarkedText: hasMarkedText
+                        )
+                    },
+                    onAcceptSuggestion: {
+                        viewModel.acceptSourceCompletion()
+                    },
+                    onDismissSuggestion: {
+                        viewModel.dismissSourceCompletion()
+                    }
+                )
 
                 if viewModel.inputText.isEmpty {
                     Text("Type in any language")
@@ -120,6 +132,33 @@ struct MainPanelView: View {
                         .padding(.leading, editorContentPadding + textEditorLineFragmentPadding)
                         .allowsHitTesting(false)
                 }
+            }
+
+            if !viewModel.sourceSuggestion.isEmpty {
+                Divider()
+
+                HStack(spacing: 8) {
+                    Text("Suggestion:")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(viewModel.sourceSuggestion)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text("Tab to accept")
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
             }
         }
         .background(Color(nsColor: .textBackgroundColor))

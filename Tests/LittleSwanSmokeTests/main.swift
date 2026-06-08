@@ -12,17 +12,118 @@ func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
     precondition(messages[1] == DeepSeekMessage(role: "user", content: "这个功能以后会支持吗？"))
 }
 
-func testDefaultConfigurationUsesDeepSeekFlash() {
+func testDefaultConfigurationUsesDeepSeekPro() {
     let configuration = AppConfiguration.default
 
     precondition(configuration.provider.name == "DeepSeek")
     precondition(configuration.provider.baseURL == "https://api.deepseek.com")
-    precondition(configuration.provider.model == "deepseek-v4-flash")
+    precondition(configuration.provider.model == "deepseek-v4-pro")
     precondition(configuration.provider.apiKey.isEmpty)
     precondition(configuration.debounceMilliseconds == 700)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.sourceEnglishLayout == .horizontal)
+}
+
+func testConfigurationMigratesDeepSeekFlashToProDuringDevelopment() throws {
+    let persistedJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
+
+    precondition(configuration.provider.model == "deepseek-v4-pro")
+}
+
+func testSourceCompletionInsertionUsesUTF16Offsets() {
+    let text = "你好🙂世界"
+    let locationAfterEmoji = (text as NSString).range(of: "世界").location
+
+    let result = SourceCompletionInsertion.insert(
+        suggestion: " beautiful",
+        into: text,
+        utf16Location: locationAfterEmoji
+    )
+
+    precondition(result.text == "你好🙂 beautiful世界")
+    precondition(result.newUTF16Location == locationAfterEmoji + (" beautiful" as NSString).length)
+}
+
+func testSourceCompletionSanitizerPreservesLeadingWhitespaceAndTrimsTrailingWhitespace() {
+    let sanitized = SourceCompletionSanitizer.sanitize("  next\n\n", maxUTF16Length: 48)
+
+    precondition(sanitized == "  next")
+}
+
+func testSourceCompletionSanitizerLimitsSuggestionToOneWord() {
+    let sanitized = SourceCompletionSanitizer.sanitize("  beautiful little swan app today", maxUTF16Length: 48)
+
+    precondition(sanitized == "  beautiful")
+}
+
+func testSourceCompletionSanitizerRejectsOpenEndedSentenceContinuations() {
+    precondition(SourceCompletionSanitizer.sanitize(" and I think we should", maxUTF16Length: 48).isEmpty)
+    precondition(SourceCompletionSanitizer.sanitize(" tomorrow.", maxUTF16Length: 48).isEmpty)
+    precondition(SourceCompletionSanitizer.sanitize(" next\nline", maxUTF16Length: 48).isEmpty)
+}
+
+func testSourceCompletionSanitizerKeepsShortCJKContinuationsConservative() {
+    precondition(SourceCompletionSanitizer.sanitize("世界你好", maxUTF16Length: 48) == "世界")
+}
+
+func testSourceCompletionAcceptanceUsesOnlyDisplayedSuggestion() {
+    let accepted = SourceCompletionAcceptance.acceptedPrefix(from: "  beautiful")
+
+    precondition(accepted == "  beautiful")
+}
+
+func testSourceCompletionEligibilityRequiresEnoughContext() {
+    precondition(SourceCompletionEligibility.shouldRequest(prefix: "Hi", suffix: "") == false)
+    precondition(SourceCompletionEligibility.shouldRequest(prefix: "Let's meet at", suffix: "") == true)
+    precondition(SourceCompletionEligibility.shouldRequest(prefix: "Let's meet.", suffix: "") == false)
+    precondition(SourceCompletionEligibility.shouldRequest(prefix: "Let's", suffix: " later") == true)
+}
+
+func testSourceCompletionAcceptanceKeepsSingleChineseToken() {
+    let accepted = SourceCompletionAcceptance.acceptedPrefix(from: "世界")
+
+    precondition(accepted == "世界")
+}
+
+func testSourceCompletionSanitizerCapsByUTF16Length() {
+    let sanitized = SourceCompletionSanitizer.sanitize("abcdef", maxUTF16Length: 3)
+
+    precondition(sanitized == "abc")
+}
+
+func testFIMCompletionRequestUsesRawPrefixSuffixDefaults() throws {
+    let request = FIMCompletionRequest(
+        model: "deepseek-v4-pro",
+        prompt: "Hello",
+        suffix: "world"
+    )
+
+    precondition(request.model == "deepseek-v4-pro")
+    precondition(request.prompt == "Hello")
+    precondition(request.suffix == "world")
+    precondition(SourceCompletionDefaults.debounceMilliseconds == 250)
+    precondition(request.maxTokens == 4)
+    precondition(request.temperature == 0.25)
+    precondition(request.stream == false)
+    precondition(request.stop == ["\n\n"])
+
+    let data = try JSONEncoder().encode(request)
+    let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+
+    precondition(object?["max_tokens"] as? Int == 4)
 }
 
 func testSourceEnglishLayoutLabelsAreUserFacing() {
@@ -161,7 +262,18 @@ func testConfigurationInitializerClampsPanelContentSize() {
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
-testDefaultConfigurationUsesDeepSeekFlash()
+testDefaultConfigurationUsesDeepSeekPro()
+try testConfigurationMigratesDeepSeekFlashToProDuringDevelopment()
+testSourceCompletionInsertionUsesUTF16Offsets()
+testSourceCompletionSanitizerPreservesLeadingWhitespaceAndTrimsTrailingWhitespace()
+testSourceCompletionSanitizerLimitsSuggestionToOneWord()
+testSourceCompletionSanitizerRejectsOpenEndedSentenceContinuations()
+testSourceCompletionSanitizerKeepsShortCJKContinuationsConservative()
+testSourceCompletionAcceptanceUsesOnlyDisplayedSuggestion()
+testSourceCompletionEligibilityRequiresEnoughContext()
+testSourceCompletionAcceptanceKeepsSingleChineseToken()
+testSourceCompletionSanitizerCapsByUTF16Length()
+try testFIMCompletionRequestUsesRawPrefixSuffixDefaults()
 testSourceEnglishLayoutLabelsAreUserFacing()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationDecodesPersistedVerticalSourceEnglishLayout()

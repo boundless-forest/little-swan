@@ -88,13 +88,40 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable {
         self.name = name
         self.baseURL = baseURL
         self.apiKey = apiKey
-        self.model = model
+        self.model = Self.developmentModelMigration(model)
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decode(String.self, forKey: .name)
+        baseURL = try container.decode(String.self, forKey: .baseURL)
+        apiKey = try container.decode(String.self, forKey: .apiKey)
+        model = Self.developmentModelMigration(try container.decode(String.self, forKey: .model))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encode(baseURL, forKey: .baseURL)
+        try container.encode(apiKey, forKey: .apiKey)
+        try container.encode(model, forKey: .model)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case baseURL
+        case apiKey
+        case model
+    }
+
+    private static func developmentModelMigration(_ model: String) -> String {
+        model == "deepseek-v4-flash" ? SourceCompletionDefaults.model : model
     }
 
     public static let deepSeekDefault = ProviderConfiguration(
         name: "DeepSeek",
         baseURL: "https://api.deepseek.com",
         apiKey: "",
-        model: "deepseek-v4-flash"
+        model: SourceCompletionDefaults.model
     )
 }
