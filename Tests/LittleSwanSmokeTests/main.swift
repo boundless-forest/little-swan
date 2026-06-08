@@ -23,6 +23,8 @@ func testDefaultConfigurationUsesDeepSeekPro() {
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.sourceEnglishLayout == .horizontal)
+    precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
+    precondition(configuration.toggleShortcut.displayString == "⌃L")
 }
 
 func testConfigurationMigratesDeepSeekFlashToProDuringDevelopment() throws {
@@ -170,6 +172,98 @@ func testConfigurationDecodesPersistedVerticalSourceEnglishLayout() throws {
     precondition(configuration.sourceEnglishLayout == .vertical)
 }
 
+func testConfigurationDecodesPersistedToggleShortcut() throws {
+    let persistedJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "toggleShortcut": {
+        "keyCode": 49,
+        "modifierFlags": 1048576
+      }
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
+
+    precondition(configuration.toggleShortcut.keyCode == 49)
+    precondition(configuration.toggleShortcut.modifierFlags == KeyboardShortcutConfiguration.commandModifierFlag)
+    precondition(configuration.toggleShortcut.displayString == "⌘Space")
+}
+
+func testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut() throws {
+    let legacyJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
+
+    precondition(configuration.toggleShortcut == .defaultToggleShortcut)
+}
+
+func testKeyboardShortcutRejectsMissingModifierOrKey() {
+    precondition(KeyboardShortcutConfiguration(keyCode: 37, modifierFlags: 0).isValid == false)
+    precondition(KeyboardShortcutConfiguration(keyCode: nil, modifierFlags: KeyboardShortcutConfiguration.controlModifierFlag).isValid == false)
+    precondition(KeyboardShortcutConfiguration.defaultToggleShortcut.isValid)
+}
+
+func testKeyboardShortcutDecodingMasksUnsupportedModifiers() throws {
+    let data = """
+    {
+      "keyCode": 37,
+      "modifierFlags": 9223372036854775808
+    }
+    """.data(using: .utf8)!
+
+    let shortcut = try JSONDecoder().decode(KeyboardShortcutConfiguration.self, from: data)
+
+    precondition(shortcut.modifierFlags == 0)
+    precondition(shortcut.isValid == false)
+}
+
+func testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut() {
+    let shortcut = KeyboardShortcutConfiguration.defaultToggleShortcut
+
+    precondition(shortcut.menuKeyEquivalent == "l")
+    precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+}
+
+func testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys() {
+    let f1Shortcut = KeyboardShortcutConfiguration(
+        keyCode: 122,
+        modifierFlags: KeyboardShortcutConfiguration.controlModifierFlag
+    )
+    let leftArrowShortcut = KeyboardShortcutConfiguration(
+        keyCode: 123,
+        modifierFlags: KeyboardShortcutConfiguration.optionModifierFlag
+    )
+
+    precondition(f1Shortcut.menuKeyEquivalent == "\u{F704}")
+    precondition(f1Shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+    precondition(leftArrowShortcut.menuKeyEquivalent == "\u{F702}")
+    precondition(leftArrowShortcut.menuModifierFlags == KeyboardShortcutConfiguration.optionModifierFlag)
+}
+
+func testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent() {
+    let shortcut = KeyboardShortcutConfiguration(keyCode: 37, modifierFlags: 0)
+
+    precondition(shortcut.menuKeyEquivalent == nil)
+    precondition(shortcut.menuModifierFlags == nil)
+}
+
 func testPanelPresentationClampsContentSize() {
     let clampedSize = PanelPresentation.clampedContentSize(
         PanelContentSizeConfiguration(width: 100, height: 100),
@@ -277,6 +371,13 @@ try testFIMCompletionRequestUsesRawPrefixSuffixDefaults()
 testSourceEnglishLayoutLabelsAreUserFacing()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationDecodesPersistedVerticalSourceEnglishLayout()
+try testConfigurationDecodesPersistedToggleShortcut()
+try testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut()
+testKeyboardShortcutRejectsMissingModifierOrKey()
+try testKeyboardShortcutDecodingMasksUnsupportedModifiers()
+testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut()
+testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys()
+testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent()
 testPanelPresentationClampsContentSize()
 testPanelPresentationConvertsLegacyPercentageWidth()
 try testConfigurationClampsPersistedPanelContentSize()

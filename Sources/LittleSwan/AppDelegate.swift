@@ -1,4 +1,6 @@
 import AppKit
+import Combine
+import LittleSwanCore
 import SwiftUI
 
 @MainActor
@@ -9,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var panelController: FloatingPanelController?
     private var settingsController: SettingsWindowController?
+    private var hotKeyController: GlobalHotKeyController?
+    private var cancellables = Set<AnyCancellable>()
     private let configStore = ConfigStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         configureStatusItem()
+        configureGlobalShortcut()
         panelController?.show()
     }
 
@@ -58,9 +63,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = image
         item.button?.imagePosition = .imageOnly
         item.button?.target = self
-        item.button?.action = #selector(togglePanel)
+        item.button?.action = #selector(togglePanelFromStatusItem)
         item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
         statusItem = item
+    }
+
+    private func configureGlobalShortcut() {
+        let hotKeyController = GlobalHotKeyController { [weak self] in
+            self?.panelController?.toggle()
+        }
+        self.hotKeyController = hotKeyController
+
+        configStore.$configuration
+            .map(\.toggleShortcut)
+            .removeDuplicates()
+            .sink { shortcut in
+                hotKeyController.update(shortcut: shortcut)
+            }
+            .store(in: &cancellables)
     }
 
     private func statusBarIcon() -> NSImage? {
@@ -79,7 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    @objc private func togglePanel(_ sender: NSStatusBarButton) {
+    @objc private func togglePanelFromStatusItem(_ sender: NSStatusBarButton) {
         if NSApp.currentEvent?.type == .rightMouseUp {
             showStatusMenu()
             return
@@ -90,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showStatusMenu() {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Open Little Swan", action: #selector(openPanel), keyEquivalent: ""))
+        menu.addItem(toggleMenuItem())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Little Swan", action: #selector(quit), keyEquivalent: "q"))
@@ -102,6 +122,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem?.menu = menu
         statusItem?.button?.performClick(nil)
         statusItem?.menu = nil
+    }
+
+    private func toggleMenuItem() -> NSMenuItem {
+        let shortcut = configStore.configuration.toggleShortcut
+        let item = NSMenuItem(title: "Open / Hide Little Swan", action: #selector(togglePanelFromMenu), keyEquivalent: shortcut.menuKeyEquivalent ?? "")
+        if let menuModifierFlags = shortcut.menuModifierFlags {
+            item.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: menuModifierFlags)
+        }
+        return item
+    }
+
+    @objc private func togglePanelFromMenu() {
+        panelController?.toggle()
     }
 
     @objc private func openPanel() {

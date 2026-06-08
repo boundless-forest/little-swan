@@ -56,7 +56,7 @@ struct SettingsView: View {
                 Button("Save") {
                     saveDraft()
                 }
-                .disabled(!hasUnsavedChanges)
+                .disabled(!hasUnsavedChanges || !draft.toggleShortcut.isValid)
                 .keyboardShortcut(.defaultAction)
             }
         }
@@ -121,6 +121,8 @@ struct SettingsView: View {
             providerGroup
         case .translation:
             translationGroup
+        case .shortcuts:
+            shortcutsGroup
         }
     }
 
@@ -223,6 +225,31 @@ struct SettingsView: View {
         }
     }
 
+    private var shortcutsGroup: some View {
+        GroupBox("Shortcuts") {
+            VStack(alignment: .leading, spacing: 12) {
+                settingsRow("Open / hide") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            KeyboardShortcutRecorder(shortcut: $draft.toggleShortcut)
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.toggleShortcut = .defaultToggleShortcut
+                            }
+                        }
+
+                        Text(shortcutHelpText)
+                            .font(.caption)
+                            .foregroundStyle(draft.toggleShortcut.isValid ? Color.secondary : Color.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
     private func settingsRow<Content: View>(
         _ title: String,
         @ViewBuilder content: () -> Content
@@ -253,6 +280,7 @@ struct SettingsView: View {
             || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
             || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
             || draft.sourceEnglishLayout != configStore.configuration.sourceEnglishLayout
+            || draft.toggleShortcut != configStore.configuration.toggleShortcut
     }
 
     private var defaultEditableConfiguration: AppConfiguration {
@@ -261,11 +289,22 @@ struct SettingsView: View {
             debounceMilliseconds: 700,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
-            sourceEnglishLayout: .horizontal
+            sourceEnglishLayout: .horizontal,
+            toggleShortcut: .defaultToggleShortcut
         )
     }
 
+    private var shortcutHelpText: String {
+        if draft.toggleShortcut.isValid {
+            "Press this shortcut anywhere to open or hide Little Swan. Click the field, press a new key combination, then Save."
+        } else {
+            "Shortcut must include at least one modifier key."
+        }
+    }
+
     private func saveDraft() {
+        guard draft.toggleShortcut.isValid else { return }
+
         var nextConfiguration = draft
         nextConfiguration.panelContentSize = configStore.configuration.panelContentSize
         configStore.configuration = nextConfiguration
@@ -299,6 +338,7 @@ struct SettingsView: View {
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case provider
     case translation
+    case shortcuts
 
     var id: String { rawValue }
 
@@ -308,6 +348,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "Provider"
         case .translation:
             "Translation"
+        case .shortcuts:
+            "Shortcuts"
         }
     }
 
@@ -317,6 +359,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "network"
         case .translation:
             "textformat"
+        case .shortcuts:
+            "keyboard"
         }
     }
 }

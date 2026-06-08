@@ -6,19 +6,22 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var sourceEnglishLayout: SourceEnglishLayout
+    public var toggleShortcut: KeyboardShortcutConfiguration
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = 700,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
-        sourceEnglishLayout: SourceEnglishLayout = .horizontal
+        sourceEnglishLayout: SourceEnglishLayout = .horizontal,
+        toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut
     ) {
         self.provider = provider
         self.debounceMilliseconds = debounceMilliseconds
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.sourceEnglishLayout = sourceEnglishLayout
+        self.toggleShortcut = toggleShortcut
     }
 
     public static let `default` = AppConfiguration()
@@ -29,6 +32,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case defaultWritingStyle
         case panelContentSize
         case sourceEnglishLayout
+        case toggleShortcut
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -44,6 +48,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
         sourceEnglishLayout = try container.decodeIfPresent(SourceEnglishLayout.self, forKey: .sourceEnglishLayout) ?? .horizontal
+        toggleShortcut = try container.decodeIfPresent(
+            KeyboardShortcutConfiguration.self,
+            forKey: .toggleShortcut
+        ) ?? .defaultToggleShortcut
 
         if let contentSize = try container.decodeIfPresent(
             PanelContentSizeConfiguration.self,
