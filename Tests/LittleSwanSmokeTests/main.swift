@@ -277,7 +277,45 @@ func testPanelPresentationClampsContentSize() {
 
 func testPanelPresentationConvertsLegacyPercentageWidth() {
     precondition(PanelPresentation.width(percentage: 60, availableWidth: 1_000) == 586)
-    precondition(PanelPresentation.contentSize(widthPercentage: 60).height == PanelPresentation.defaultContentHeight)
+    precondition(PanelPresentation.height(percentage: 12, availableHeight: 800) == 120)
+    precondition(PanelPresentation.contentSize(widthPercentage: 60).height == PanelPresentation.defaultContentSize.height)
+}
+
+func testPanelPresentationComputesResponsiveDefaultContentSize() {
+    let compactSize = PanelPresentation.defaultContentSize(availableWidth: 900, availableHeight: 700)
+    let spaciousSize = PanelPresentation.defaultContentSize(availableWidth: 2_400, availableHeight: 1_200)
+
+    precondition(compactSize.width == 526)
+    precondition(compactSize.height == 120)
+    precondition(spaciousSize.width == 1_426)
+    precondition(spaciousSize.height == 141)
+    precondition(compactSize.width > compactSize.height)
+    precondition(spaciousSize.width > spaciousSize.height)
+    precondition(spaciousSize.width > compactSize.width)
+    precondition(spaciousSize.height > compactSize.height)
+}
+
+func testConfigurationMigratesLegacyWideDefaultPanelContentSize() throws {
+    let legacyDefaultJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "panelContentSize": {
+        "width": 850,
+        "height": 300
+      }
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyDefaultJSON)
+
+    precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
+    precondition(configuration.sourceEnglishLayout == .horizontal)
 }
 
 func testConfigurationClampsPersistedPanelContentSize() throws {
@@ -323,7 +361,7 @@ func testConfigurationDecodesLegacyPanelWidthAsContentSize() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.panelContentSize.width == 860)
-    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentHeight)
+    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentSize.height)
 }
 
 func testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize() throws {
@@ -343,7 +381,7 @@ func testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.panelContentSize.width == PanelPresentation.fallbackAvailableWidth - PanelPresentation.screenMargin * 2)
-    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentHeight)
+    precondition(configuration.panelContentSize.height == PanelPresentation.defaultContentSize.height)
 }
 
 func testConfigurationInitializerClampsPanelContentSize() {
@@ -380,6 +418,8 @@ testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys()
 testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent()
 testPanelPresentationClampsContentSize()
 testPanelPresentationConvertsLegacyPercentageWidth()
+testPanelPresentationComputesResponsiveDefaultContentSize()
+try testConfigurationMigratesLegacyWideDefaultPanelContentSize()
 try testConfigurationClampsPersistedPanelContentSize()
 try testConfigurationDecodesLegacyPanelWidthAsContentSize()
 try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()

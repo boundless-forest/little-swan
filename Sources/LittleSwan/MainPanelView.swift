@@ -7,77 +7,44 @@ struct MainPanelView: View {
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
 
-    var openSettings: () -> Void
-
     private let editorContentPadding: CGFloat = 8
     // TextEditor is backed by NSTextView, whose text container adds this default horizontal inset.
     private let textEditorLineFragmentPadding: CGFloat = 5
 
     var body: some View {
-        VStack(spacing: 10) {
-            header
-
-            contentColumns
-        }
-        .padding(.horizontal, 14)
-        .padding(.top, 10)
-        .padding(.bottom, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            isInputFocused = true
-        }
-        .onDisappear {
-            copyFeedbackTask?.cancel()
-        }
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "text.bubble")
-                .font(.system(size: 16, weight: .semibold))
-
-            Text("Translate")
-                .font(.system(size: 16, weight: .semibold))
-
-            Spacer()
-
-            if viewModel.isLoading {
-                ProgressView()
-                    .controlSize(.small)
+        contentColumns
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onAppear {
+                isInputFocused = true
             }
-
-            Picker("Style", selection: $viewModel.selectedStyle) {
-                ForEach(WritingStyle.allCases) { style in
-                    Text(style.label).tag(style)
-                }
+            .onDisappear {
+                copyFeedbackTask?.cancel()
             }
-            .pickerStyle(.menu)
-            .frame(width: 140)
-            .help("Writing style")
-
-            Button {
-                openSettings()
-            } label: {
-                Image(systemName: "gearshape")
-            }
-            .buttonStyle(.borderless)
-            .help("Settings")
-        }
     }
 
     @ViewBuilder
     private var contentColumns: some View {
-        switch viewModel.sourceEnglishLayout {
-        case .horizontal:
-            HStack(spacing: 10) {
-                inputEditor
-                outputView
+        GeometryReader { geometry in
+            let shouldStackVertically = viewModel.sourceEnglishLayout == .vertical
+                || geometry.size.width <= geometry.size.height
+
+            Group {
+                if shouldStackVertically {
+                    VStack(spacing: 10) {
+                        inputEditor
+                        outputView
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        inputEditor
+                        outputView
+                    }
+                }
             }
-        case .vertical:
-            VStack(spacing: 10) {
-                inputEditor
-                outputView
-            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
@@ -254,5 +221,93 @@ struct MainPanelView: View {
         }
 
         return .primary
+    }
+}
+
+
+struct MainPanelTitlebarControlsView: View {
+    @ObservedObject var viewModel: TranslationViewModel
+    @State private var isResetTooltipVisible = false
+
+    var resetMainWindow: () -> Void
+    var openSettings: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if viewModel.isLoading {
+                ProgressView()
+                    .controlSize(.small)
+            }
+
+            Text("Style")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            Picker("Style", selection: $viewModel.selectedStyle) {
+                ForEach(WritingStyle.allCases) { style in
+                    Text(style.label).tag(style)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(width: 128)
+            .help("Writing style")
+
+            Button {
+                resetMainWindow()
+            } label: {
+                Image(systemName: "arrow.counterclockwise")
+            }
+            .buttonStyle(.borderless)
+            .frame(width: 22, height: 22)
+            .contentShape(Rectangle())
+            .help("Reset window position and size")
+            .onHover { isHovering in
+                withAnimation(.easeOut(duration: 0.08)) {
+                    isResetTooltipVisible = isHovering
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if isResetTooltipVisible {
+                    TooltipBubble(text: "Reset window position and size")
+                        .offset(y: 30)
+                        .transition(.opacity)
+                        .allowsHitTesting(false)
+                }
+            }
+            .zIndex(1)
+
+            Button {
+                openSettings()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .frame(width: 22, height: 22)
+            .contentShape(Rectangle())
+            .help("Settings")
+        }
+        .padding(.trailing, 8)
+    }
+}
+
+private struct TooltipBubble: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption2)
+            .foregroundStyle(Color(nsColor: .textColor))
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.6))
+            )
+            .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
     }
 }

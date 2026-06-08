@@ -10,8 +10,9 @@ final class FloatingPanelController {
     private let resizeDelegate: PanelResizeDelegate
     private var cancellables = Set<AnyCancellable>()
 
-    init<Content: View>(
+    init<Content: View, TitlebarAccessory: View>(
         rootView: Content,
+        titlebarAccessoryView: TitlebarAccessory,
         configStore: ConfigStore
     ) {
         self.configStore = configStore
@@ -24,13 +25,12 @@ final class FloatingPanelController {
 
         panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
-            styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
+            styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
 
         panel.title = "Little Swan"
-        panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -43,6 +43,13 @@ final class FloatingPanelController {
         )
         panel.delegate = resizeDelegate
         panel.contentView = NSHostingView(rootView: rootView)
+
+        let titlebarAccessoryController = NSTitlebarAccessoryViewController()
+        titlebarAccessoryController.layoutAttribute = .right
+        let titlebarHostingView = NSHostingView(rootView: titlebarAccessoryView)
+        titlebarHostingView.frame = NSRect(x: 0, y: 0, width: 260, height: 28)
+        titlebarAccessoryController.view = titlebarHostingView
+        panel.addTitlebarAccessoryViewController(titlebarAccessoryController)
 
         observeScreenChanges()
     }
@@ -59,6 +66,18 @@ final class FloatingPanelController {
         applyPreferredFrame(animated: false)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    func resetPlacementAndSize() {
+        // Persist the canonical default marker instead of the screen-specific computed size.
+        // `contentSize(configuration:visibleFrame:)` expands this marker against the active
+        // screen, so a reset panel remains responsive after display or Dock changes.
+        if configStore.configuration.panelContentSize != PanelPresentation.defaultContentSize {
+            configStore.configuration.panelContentSize = PanelPresentation.defaultContentSize
+            configStore.save()
+        }
+
+        applyPreferredFrame(animated: true)
     }
 
     private func observeScreenChanges() {
@@ -97,8 +116,14 @@ final class FloatingPanelController {
         let availableHeight = visibleFrame.map {
             max(PanelPresentation.minimumContentHeight, Int($0.height) - PanelPresentation.windowFrameHeightReserve)
         }
+        let preferredSize = configuration.panelContentSize == PanelPresentation.defaultContentSize
+            ? PanelPresentation.defaultContentSize(
+                availableWidth: availableWidth,
+                availableHeight: availableHeight
+            )
+            : configuration.panelContentSize
         let clampedSize = PanelPresentation.clampedContentSize(
-            configuration.panelContentSize,
+            preferredSize,
             availableWidth: availableWidth,
             availableHeight: availableHeight
         )

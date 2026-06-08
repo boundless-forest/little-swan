@@ -21,8 +21,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let viewModel = TranslationViewModel(configStore: configStore)
         panelController = FloatingPanelController(
-            rootView: MainPanelView(
+            rootView: MainPanelView(viewModel: viewModel),
+            titlebarAccessoryView: MainPanelTitlebarControlsView(
                 viewModel: viewModel,
+                resetMainWindow: { [weak self] in self?.panelController?.resetPlacementAndSize() },
                 openSettings: { [weak self] in self?.showSettings() }
             ),
             configStore: configStore

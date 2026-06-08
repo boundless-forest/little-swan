@@ -57,7 +57,9 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             PanelContentSizeConfiguration.self,
             forKey: .panelContentSize
         ) {
-            panelContentSize = PanelPresentation.clampedContentSize(contentSize)
+            panelContentSize = contentSize == PanelPresentation.legacyWideDefaultContentSize
+                ? PanelPresentation.defaultContentSize
+                : PanelPresentation.clampedContentSize(contentSize)
         } else if let legacyWidthPercentage = try legacyContainer.decodeIfPresent(
             Int.self,
             forKey: .panelWidthPercentage

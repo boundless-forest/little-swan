@@ -3,18 +3,37 @@ import Foundation
 public enum PanelPresentation {
     // Keep geometry constants in core so window sizing and tests use the same contract.
     public static let defaultWidthPercentage = 60
+    public static let defaultHeightPercentage = 12
     public static let fallbackAvailableWidth = 1_440
     public static let fallbackAvailableHeight = 900
     public static let minimumContentWidth = 520
-    public static let minimumContentHeight = 240
-    public static let defaultContentHeight = 300
+    public static let minimumContentHeight = 120
     public static let windowFrameHeightReserve = 48
     public static let screenMargin = 12
 
     public static let defaultContentSize = PanelContentSizeConfiguration(
         width: width(percentage: defaultWidthPercentage),
-        height: defaultContentHeight
+        height: height(percentage: defaultHeightPercentage)
     )
+
+    public static let legacyWideDefaultContentSize = PanelContentSizeConfiguration(
+        width: 850,
+        height: 300
+    )
+
+    public static func defaultContentSize(
+        availableWidth: Int? = nil,
+        availableHeight: Int? = nil
+    ) -> PanelContentSizeConfiguration {
+        clampedContentSize(
+            PanelContentSizeConfiguration(
+                width: width(percentage: defaultWidthPercentage, availableWidth: availableWidth),
+                height: height(percentage: defaultHeightPercentage, availableHeight: availableHeight)
+            ),
+            availableWidth: availableWidth,
+            availableHeight: availableHeight
+        )
+    }
 
     public static func clampedContentSize(
         _ preferredSize: PanelContentSizeConfiguration,
@@ -49,11 +68,22 @@ public enum PanelPresentation {
         return min(max(preferredWidth, minimumContentWidth), usableWidth)
     }
 
+    public static func height(percentage: Int, availableHeight: Int? = nil) -> Int {
+        let usableHeight = max(
+            minimumContentHeight,
+            (availableHeight ?? fallbackAvailableHeight) - screenMargin * 2
+        )
+        let clampedPercentage = min(max(percentage, 1), 100)
+        let preferredHeight = Int((Double(usableHeight) * Double(clampedPercentage) / 100).rounded())
+
+        return min(max(preferredHeight, minimumContentHeight), usableHeight)
+    }
+
     public static func contentSize(widthPercentage: Int) -> PanelContentSizeConfiguration {
         clampedContentSize(
             PanelContentSizeConfiguration(
                 width: width(percentage: widthPercentage),
-                height: defaultContentHeight
+                height: height(percentage: defaultHeightPercentage)
             )
         )
     }
@@ -62,7 +92,7 @@ public enum PanelPresentation {
         clampedContentSize(
             PanelContentSizeConfiguration(
                 width: legacyWidth,
-                height: defaultContentHeight
+                height: height(percentage: defaultHeightPercentage)
             )
         )
     }
