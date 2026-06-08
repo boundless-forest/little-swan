@@ -55,7 +55,23 @@ struct MainPanelView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                Spacer()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        ForEach(Array(viewModel.sourceDrafts.enumerated()), id: \.element.id) { index, draft in
+                            SourceDraftChip(
+                                title: viewModel.sourceDraftLabel(for: draft, fallbackIndex: index),
+                                isSelected: draft.id == viewModel.selectedSourceDraftID
+                            ) {
+                                viewModel.selectSourceDraft(draft.id)
+                                isInputFocused = true
+                            }
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
+                .frame(maxWidth: 220)
+
+                Spacer(minLength: 4)
 
                 Button {
                     viewModel.clearInput()
@@ -65,7 +81,7 @@ struct MainPanelView: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled(viewModel.inputText.isEmpty)
-                .help("Clear input")
+                .help("Clear current draft")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
@@ -144,7 +160,22 @@ struct MainPanelView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
 
-                Spacer()
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        ForEach(WritingStyle.allCases) { style in
+                            SourceDraftChip(
+                                title: style.label,
+                                isSelected: style == viewModel.selectedStyle
+                            ) {
+                                viewModel.selectedStyle = style
+                            }
+                        }
+                    }
+                    .padding(.vertical, 1)
+                }
+                .frame(maxWidth: 360)
+
+                Spacer(minLength: 4)
 
                 Label("Copied", systemImage: "checkmark.circle.fill")
                     .font(.caption)
@@ -224,6 +255,33 @@ struct MainPanelView: View {
     }
 }
 
+private struct SourceDraftChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption2.weight(isSelected ? .semibold : .regular))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(title)
+    }
+}
 
 struct MainPanelTitlebarControlsView: View {
     @ObservedObject var viewModel: TranslationViewModel
@@ -238,20 +296,6 @@ struct MainPanelTitlebarControlsView: View {
                 ProgressView()
                     .controlSize(.small)
             }
-
-            Text("Style")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-
-            Picker("Style", selection: $viewModel.selectedStyle) {
-                ForEach(WritingStyle.allCases) { style in
-                    Text(style.label).tag(style)
-                }
-            }
-            .labelsHidden()
-            .pickerStyle(.menu)
-            .frame(width: 128)
-            .help("Writing style")
 
             Button {
                 resetMainWindow()

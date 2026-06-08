@@ -6,7 +6,10 @@ import LittleSwanCore
 @MainActor
 final class TranslationViewModel: ObservableObject {
     @Published var inputText = "" {
-        didSet { scheduleTranslation() }
+        didSet {
+            sourceDraftStore?.updateSelectedDraftText(inputText)
+            scheduleTranslation()
+        }
     }
 
     @Published var outputText = ""
@@ -19,8 +22,11 @@ final class TranslationViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var sourceSuggestion = ""
     @Published var isCompletingSource = false
+    @Published private(set) var sourceDrafts: [SourceDraft]
+    @Published private(set) var selectedSourceDraftID: UUID
 
     private let configStore: ConfigStore
+    private let sourceDraftStore: SourceDraftStore?
     private let client: DeepSeekClient
     private var translationTask: Task<Void, Never>?
     private var sourceCompletionTask: Task<Void, Never>?
@@ -31,10 +37,16 @@ final class TranslationViewModel: ObservableObject {
 
     init(
         configStore: ConfigStore,
+        sourceDraftStore: SourceDraftStore? = nil,
         client: DeepSeekClient = DeepSeekClient()
     ) {
         self.configStore = configStore
+        self.sourceDraftStore = sourceDraftStore
         self.client = client
+        let initialDraftCollection = sourceDraftStore?.collection ?? .default
+        sourceDrafts = initialDraftCollection.drafts
+        selectedSourceDraftID = initialDraftCollection.selectedDraftID
+        inputText = initialDraftCollection.selectedDraft?.text ?? ""
         selectedStyle = configStore.configuration.defaultWritingStyle
         sourceEnglishLayout = configStore.configuration.sourceEnglishLayout
 
@@ -53,6 +65,13 @@ final class TranslationViewModel: ObservableObject {
                 self?.sourceEnglishLayout = layout
             }
             .store(in: &cancellables)
+
+        sourceDraftStore?.$collection
+            .sink { [weak self] collection in
+                self?.sourceDrafts = collection.drafts
+                self?.selectedSourceDraftID = collection.selectedDraftID
+            }
+            .store(in: &cancellables)
     }
 
     func copyOutput() {
@@ -69,6 +88,31 @@ final class TranslationViewModel: ObservableObject {
         sourceSuggestion = ""
         isCompletingSource = false
         inputText = ""
+    }
+
+    func selectSourceDraft(_ id: UUID) {
+        guard selectedSourceDraftID != id else { return }
+        dismissSourceCompletion()
+        sourceDraftStore?.updateSelectedDraftText(inputText)
+        sourceDraftStore?.selectDraft(id: id)
+
+        guard let draft = sourceDraftStore?.selectedDraft ?? sourceDrafts.first(where: { $0.id == id }) else {
+            return
+        }
+
+        applySelectedDraft(draft)
+    }
+
+    func sourceDraftLabel(for draft: SourceDraft, fallbackIndex: Int) -> String {
+        draft.displayTitle(fallbackIndex: fallbackIndex)
+    }
+
+    private func applySelectedDraft(_ draft: SourceDraft) {
+        selectedSourceDraftID = draft.id
+        outputText = ""
+        errorMessage = nil
+        isLoading = false
+        inputText = draft.text
     }
 
     func updateSourceEditorState(

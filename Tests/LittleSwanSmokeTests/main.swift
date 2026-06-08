@@ -393,6 +393,165 @@ func testConfigurationInitializerClampsPanelContentSize() {
     precondition(configuration.panelContentSize.height == PanelPresentation.minimumContentHeight)
 }
 
+func testSourceDraftCollectionStartsWithThreeEmptyDrafts() {
+    let collection = SourceDraftCollection.default
+
+    precondition(collection.version == 1)
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.drafts.count == 3)
+    precondition(collection.selectedDraftID == collection.drafts[0].id)
+    precondition(collection.selectedDraft?.text == "")
+    precondition(collection.drafts.enumerated().allSatisfy { index, draft in
+        draft.displayTitle(fallbackIndex: index) == "Draft \(index + 1)"
+    })
+}
+
+func testSourceDraftCollectionUpdatesSelectedDraftText() {
+    var collection = SourceDraftCollection.default
+    let selectedID = collection.selectedDraftID
+
+    collection.updateSelectedDraftText("Please rewrite this message")
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.selectedDraftID == selectedID)
+    let selectedDraft = collection.selectedDraft!
+    precondition(selectedDraft.text == "Please rewrite this message")
+    precondition(selectedDraft.updatedAt >= selectedDraft.createdAt)
+}
+
+func testSourceDraftCollectionCreateDraftIsStrictlyLimitedToThree() {
+    var collection = SourceDraftCollection.default
+    let originalIDs = collection.drafts.map(\.id)
+
+    let returnedDraft = collection.createDraft(text: "Should not create a fourth draft")
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.drafts.map(\.id) == originalIDs)
+    precondition(returnedDraft.id == collection.selectedDraftID)
+    precondition(collection.selectedDraft?.text == "")
+}
+
+func testSourceDraftCollectionNormalizesPersistedDraftsToExactlyThree() {
+    let selected = SourceDraft(text: "Selected")
+    let extraDrafts = [
+        SourceDraft(text: "First"),
+        selected,
+        SourceDraft(text: "Third"),
+        SourceDraft(text: "Fourth")
+    ]
+
+    let collection = SourceDraftCollection(selectedDraftID: selected.id, drafts: extraDrafts)
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.selectedDraftID == selected.id)
+    precondition(collection.selectedDraft?.text == "Selected")
+    precondition(collection.drafts.map(\.text) == ["First", "Selected", "Third"])
+}
+
+func testSourceDraftCollectionPadsPersistedDraftsToExactlyThree() {
+    let draft = SourceDraft(text: "Only saved draft")
+
+    let collection = SourceDraftCollection(selectedDraftID: draft.id, drafts: [draft])
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.selectedDraftID == draft.id)
+    precondition(collection.drafts[0].text == "Only saved draft")
+    precondition(collection.drafts[1].text == "")
+    precondition(collection.drafts[2].text == "")
+}
+
+func testSourceDraftCollectionKeepsThreeDraftsWhenDeleting() {
+    var collection = SourceDraftCollection.default
+    let deletedID = collection.selectedDraftID
+
+    collection.deleteDraft(id: deletedID)
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.selectedDraftID != deletedID)
+    precondition(!collection.drafts.contains { $0.id == deletedID })
+}
+
+func testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft() {
+    let first = SourceDraft(text: "First")
+    let second = SourceDraft(text: "Second")
+    let third = SourceDraft(text: "Third")
+    var collection = SourceDraftCollection(selectedDraftID: third.id, drafts: [first, second, third])
+
+    collection.deleteDraft(id: collection.selectedDraftID)
+
+    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.selectedDraftID == second.id)
+    precondition(collection.selectedDraft?.text == "Second")
+    precondition(collection.drafts.contains { $0.id == first.id })
+    precondition(!collection.drafts.contains { $0.id == third.id })
+}
+
+func testSourceDraftCollectionLabelsUseFirstNonEmptyLine() {
+    let emptyDraft = SourceDraft(text: "")
+    let titledDraft = SourceDraft(text: "\n  Email to Jane  \nMore details")
+    let longDraft = SourceDraft(text: "This is a very long unfinished source draft title")
+
+    precondition(emptyDraft.displayTitle(fallbackIndex: 0) == "Draft 1")
+    precondition(titledDraft.displayTitle(fallbackIndex: 1) == "Email to Jane")
+    precondition(longDraft.displayTitle(fallbackIndex: 2) == "This is a very long…")
+}
+
+func testSourceDraftCollectionDecodingNormalizesLegacyDraftCount() throws {
+    let oneDraftJSON = """
+    {
+      "version": 1,
+      "selectedDraftID": "11111111-1111-1111-1111-111111111111",
+      "drafts": [
+        {
+          "id": "11111111-1111-1111-1111-111111111111",
+          "text": "Legacy one draft",
+          "createdAt": "2026-06-08T00:00:00Z",
+          "updatedAt": "2026-06-08T00:00:00Z"
+        },
+        {
+          "id": "22222222-2222-2222-2222-222222222222",
+          "text": "Legacy extra draft",
+          "createdAt": "2026-06-08T00:00:00Z",
+          "updatedAt": "2026-06-08T00:00:00Z"
+        },
+        {
+          "id": "33333333-3333-3333-3333-333333333333",
+          "text": "Legacy third draft",
+          "createdAt": "2026-06-08T00:00:00Z",
+          "updatedAt": "2026-06-08T00:00:00Z"
+        },
+        {
+          "id": "44444444-4444-4444-4444-444444444444",
+          "text": "Legacy fourth draft",
+          "createdAt": "2026-06-08T00:00:00Z",
+          "updatedAt": "2026-06-08T00:00:00Z"
+        }
+      ]
+    }
+    """.data(using: .utf8)!
+
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let decoded = try decoder.decode(SourceDraftCollection.self, from: oneDraftJSON)
+
+    precondition(decoded.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(decoded.drafts.map(\.text) == ["Legacy one draft", "Legacy extra draft", "Legacy third draft"])
+}
+
+func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
+    let first = SourceDraft(text: "First")
+    let second = SourceDraft(text: "Second")
+    let third = SourceDraft(text: "Third")
+    let collection = SourceDraftCollection(selectedDraftID: second.id, drafts: [first, second, third])
+
+    let data = try JSONEncoder().encode(collection)
+    let decoded = try JSONDecoder().decode(SourceDraftCollection.self, from: data)
+
+    precondition(decoded.selectedDraftID == second.id)
+    precondition(decoded.selectedDraft?.text == "Second")
+    precondition(decoded.drafts.count == SourceDraftCollection.maximumDraftCount)
+}
+
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testDefaultConfigurationUsesDeepSeekPro()
 try testConfigurationMigratesDeepSeekFlashToProDuringDevelopment()
@@ -424,5 +583,15 @@ try testConfigurationClampsPersistedPanelContentSize()
 try testConfigurationDecodesLegacyPanelWidthAsContentSize()
 try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()
 testConfigurationInitializerClampsPanelContentSize()
+testSourceDraftCollectionStartsWithThreeEmptyDrafts()
+testSourceDraftCollectionUpdatesSelectedDraftText()
+testSourceDraftCollectionCreateDraftIsStrictlyLimitedToThree()
+testSourceDraftCollectionNormalizesPersistedDraftsToExactlyThree()
+testSourceDraftCollectionPadsPersistedDraftsToExactlyThree()
+testSourceDraftCollectionKeepsThreeDraftsWhenDeleting()
+testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft()
+testSourceDraftCollectionLabelsUseFirstNonEmptyLine()
+try testSourceDraftCollectionDecodingNormalizesLegacyDraftCount()
+try testSourceDraftCollectionCodableRoundTripPreservesSelection()
 
 print("Little Swan smoke tests passed")

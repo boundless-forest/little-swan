@@ -47,7 +47,7 @@ final class FloatingPanelController {
         let titlebarAccessoryController = NSTitlebarAccessoryViewController()
         titlebarAccessoryController.layoutAttribute = .right
         let titlebarHostingView = NSHostingView(rootView: titlebarAccessoryView)
-        titlebarHostingView.frame = NSRect(x: 0, y: 0, width: 260, height: 28)
+        titlebarHostingView.frame = NSRect(x: 0, y: 0, width: 112, height: 28)
         titlebarAccessoryController.view = titlebarHostingView
         panel.addTitlebarAccessoryViewController(titlebarAccessoryController)
 

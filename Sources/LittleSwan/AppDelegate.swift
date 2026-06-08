@@ -14,12 +14,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotKeyController: GlobalHotKeyController?
     private var cancellables = Set<AnyCancellable>()
     private let configStore = ConfigStore()
+    private let sourceDraftStore = SourceDraftStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         configureApplicationMenu()
 
-        let viewModel = TranslationViewModel(configStore: configStore)
+        let viewModel = TranslationViewModel(
+            configStore: configStore,
+            sourceDraftStore: sourceDraftStore
+        )
         panelController = FloatingPanelController(
             rootView: MainPanelView(viewModel: viewModel),
             titlebarAccessoryView: MainPanelTitlebarControlsView(
@@ -33,6 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         configureStatusItem()
         configureGlobalShortcut()
         panelController?.show()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        sourceDraftStore.save()
     }
 
     private func configureApplicationMenu() {
