@@ -21,6 +21,8 @@ public enum PromptBuilder {
                 Rewrite or translate the user's text into English only.
                 Preserve the user's intent and facts. Do not add unsupported claims.
                 If the input is already English, improve clarity and naturalness without changing meaning.
+                Use clear, everyday English. Prefer common words over rare, technical, or hard-to-understand words unless the source requires them.
+                Translate meaningfully instead of word by word. Choose natural phrasing that fits the context, audience, and selected style.
                 Preserve the source format as closely as possible, including line breaks, paragraph boundaries, indentation, list structure, punctuation style, emoji placement, and surrounding whitespace.
                 Preserve Markdown structure from the source, especially fenced code blocks, inline code, block quotes, headings, links, tables, and list markers.
                 For code blocks, keep the same fence markers, language tags, indentation, line count, and code content. Translate only human-readable prose around code unless comments or string literals clearly need translation.

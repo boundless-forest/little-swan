@@ -8,6 +8,8 @@ func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
     precondition(messages[0].role == "system")
     precondition(messages[0].content.contains("Detect the user's input language automatically."))
     precondition(messages[0].content.contains("Rewrite or translate the user's text into English only."))
+    precondition(messages[0].content.contains("Use clear, everyday English."))
+    precondition(messages[0].content.contains("Translate meaningfully instead of word by word."))
     precondition(messages[0].content.contains("Preserve the source format as closely as possible"))
     precondition(messages[0].content.contains("For code blocks, keep the same fence markers"))
     precondition(messages[0].content.contains(WritingStyle.natural.instruction))

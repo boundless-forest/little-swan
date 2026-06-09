@@ -27,15 +27,15 @@ public enum WritingStyle: String, CaseIterable, Codable, Identifiable, Sendable 
     public var instruction: String {
         switch self {
         case .natural:
-            "Style: Natural. Write fluent, idiomatic English that sounds native and preserves the user's tone, emphasis, and level of detail."
+            "Style: Natural. Write smooth, everyday English that sounds like something a native speaker would actually say. Keep the user's tone, emphasis, and level of detail."
         case .polite:
-            "Style: Polite. Use respectful, considerate wording suitable for requests, replies, and support conversations without becoming overly formal or wordy."
+            "Style: Polite. Use warm, respectful wording for requests, replies, and support conversations. Keep it clear and avoid sounding stiff or wordy."
         case .casual:
-            "Style: Casual. Use relaxed, friendly wording suitable for forums, comments, and chat while keeping the message clear and not overly slangy."
+            "Style: Casual. Use relaxed, friendly wording for forums, comments, and chat. Keep it easy to understand and avoid heavy slang."
         case .professional:
-            "Style: Professional. Use precise, calm, workplace-ready English suitable for email, GitHub issues, support tickets, and product discussions."
+            "Style: Professional. Use clear, calm workplace English for email, GitHub issues, support tickets, and product discussions. Prefer plain words over formal jargon."
         case .concise:
-            "Style: Concise. Keep all essential meaning, remove unnecessary wording, and make the result compact without sounding abrupt or losing important context."
+            "Style: Concise. Keep the key meaning, remove extra wording, and make the result short without sounding abrupt or losing important context."
         }
     }
 }
