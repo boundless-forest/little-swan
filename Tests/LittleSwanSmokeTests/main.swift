@@ -486,14 +486,14 @@ func testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft() {
     precondition(!collection.drafts.contains { $0.id == third.id })
 }
 
-func testSourceDraftCollectionLabelsUseFirstNonEmptyLine() {
+func testSourceDraftCollectionLabelsStayNumbered() {
     let emptyDraft = SourceDraft(text: "")
     let titledDraft = SourceDraft(text: "\n  Email to Jane  \nMore details")
     let longDraft = SourceDraft(text: "This is a very long unfinished source draft title")
 
     precondition(emptyDraft.displayTitle(fallbackIndex: 0) == "Draft 1")
-    precondition(titledDraft.displayTitle(fallbackIndex: 1) == "Email to Jane")
-    precondition(longDraft.displayTitle(fallbackIndex: 2) == "This is a very long…")
+    precondition(titledDraft.displayTitle(fallbackIndex: 1) == "Draft 2")
+    precondition(longDraft.displayTitle(fallbackIndex: 2) == "Draft 3")
 }
 
 func testSourceDraftCollectionDecodingNormalizesLegacyDraftCount() throws {
@@ -590,7 +590,7 @@ testSourceDraftCollectionNormalizesPersistedDraftsToExactlyThree()
 testSourceDraftCollectionPadsPersistedDraftsToExactlyThree()
 testSourceDraftCollectionKeepsThreeDraftsWhenDeleting()
 testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft()
-testSourceDraftCollectionLabelsUseFirstNonEmptyLine()
+testSourceDraftCollectionLabelsStayNumbered()
 try testSourceDraftCollectionDecodingNormalizesLegacyDraftCount()
 try testSourceDraftCollectionCodableRoundTripPreservesSelection()
 

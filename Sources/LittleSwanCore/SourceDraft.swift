@@ -1,8 +1,6 @@
 import Foundation
 
 public struct SourceDraft: Codable, Equatable, Identifiable, Sendable {
-    public static let titleCharacterLimit = 20
-
     public var id: UUID
     public var text: String
     public var createdAt: Date
@@ -21,22 +19,7 @@ public struct SourceDraft: Codable, Equatable, Identifiable, Sendable {
     }
 
     public func displayTitle(fallbackIndex: Int) -> String {
-        let firstLine = text
-            .split(whereSeparator: \.isNewline)
-            .lazy
-            .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-            .first { !$0.isEmpty }
-
-        guard let firstLine, !firstLine.isEmpty else {
-            return "Draft \(fallbackIndex + 1)"
-        }
-
-        if firstLine.count <= Self.titleCharacterLimit {
-            return firstLine
-        }
-
-        let prefixLength = max(Self.titleCharacterLimit - 1, 1)
-        return String(firstLine.prefix(prefixLength)) + "…"
+        "Draft \(fallbackIndex + 1)"
     }
 }
 
