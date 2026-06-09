@@ -8,8 +8,26 @@ func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
     precondition(messages[0].role == "system")
     precondition(messages[0].content.contains("Detect the user's input language automatically."))
     precondition(messages[0].content.contains("Rewrite or translate the user's text into English only."))
+    precondition(messages[0].content.contains("Preserve the source format as closely as possible"))
+    precondition(messages[0].content.contains("For code blocks, keep the same fence markers"))
     precondition(messages[0].content.contains(WritingStyle.natural.instruction))
     precondition(messages[1] == DeepSeekMessage(role: "user", content: "这个功能以后会支持吗？"))
+}
+
+func testPromptBuilderPreservesUserCodeBlockInput() {
+    let input = """
+    请帮我解释这个错误：
+
+    ```swift
+    print("hello")
+    ```
+    """
+    let messages = PromptBuilder.messages(input: input, style: .professional)
+
+    precondition(messages[0].content.contains("Preserve Markdown structure from the source"))
+    precondition(messages[0].content.contains("Translate only human-readable prose around code"))
+    precondition(messages[0].content.contains(WritingStyle.professional.instruction))
+    precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
 }
 
 func testDefaultConfigurationUsesDeepSeekPro() {
@@ -553,6 +571,7 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
+testPromptBuilderPreservesUserCodeBlockInput()
 testDefaultConfigurationUsesDeepSeekPro()
 try testConfigurationMigratesDeepSeekFlashToProDuringDevelopment()
 testSourceCompletionInsertionUsesUTF16Offsets()

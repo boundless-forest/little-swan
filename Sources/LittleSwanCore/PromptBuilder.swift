@@ -21,8 +21,13 @@ public enum PromptBuilder {
                 Rewrite or translate the user's text into English only.
                 Preserve the user's intent and facts. Do not add unsupported claims.
                 If the input is already English, improve clarity and naturalness without changing meaning.
+                Preserve the source format as closely as possible, including line breaks, paragraph boundaries, indentation, list structure, punctuation style, emoji placement, and surrounding whitespace.
+                Preserve Markdown structure from the source, especially fenced code blocks, inline code, block quotes, headings, links, tables, and list markers.
+                For code blocks, keep the same fence markers, language tags, indentation, line count, and code content. Translate only human-readable prose around code unless comments or string literals clearly need translation.
+                Do not collapse multiple lines into one paragraph unless the source already uses one paragraph.
+                Keep placeholders, variables, URLs, file paths, commands, product names, and identifiers unchanged unless the user clearly asks to translate them.
                 \(style.instruction)
-                Return only the final English text, with no labels, explanations, markdown, or quotation marks.
+                Return only the final English text, with no labels, explanations, added markdown wrappers, or quotation marks.
                 """
             ),
             DeepSeekMessage(role: "user", content: input)
