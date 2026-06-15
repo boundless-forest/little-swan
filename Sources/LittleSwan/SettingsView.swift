@@ -209,17 +209,6 @@ struct SettingsView: View {
                     .pickerStyle(.menu)
                     .labelsHidden()
                 }
-
-                settingsRow("Source/English layout") {
-                    Picker("Source/English layout", selection: $draft.sourceEnglishLayout) {
-                        ForEach(SourceEnglishLayout.allCases) { layout in
-                            Text(layout.label).tag(layout)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .help("Choose whether Source and English appear side by side or stacked.")
-                }
             }
             .padding(.vertical, 4)
         }
@@ -279,7 +268,6 @@ struct SettingsView: View {
         draft.provider != configStore.configuration.provider
             || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
             || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
-            || draft.sourceEnglishLayout != configStore.configuration.sourceEnglishLayout
             || draft.toggleShortcut != configStore.configuration.toggleShortcut
     }
 
@@ -289,7 +277,6 @@ struct SettingsView: View {
             debounceMilliseconds: 700,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
-            sourceEnglishLayout: .horizontal,
             toggleShortcut: .defaultToggleShortcut
         )
     }

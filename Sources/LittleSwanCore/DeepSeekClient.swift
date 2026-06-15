@@ -89,61 +89,6 @@ public final class DeepSeekClient: Sendable {
 
         return output
     }
-    public func completeSourceInput(
-        prefix: String,
-        suffix: String,
-        configuration: ProviderConfiguration
-    ) async throws -> String {
-        let apiKey = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !apiKey.isEmpty else {
-            throw DeepSeekClientError.missingAPIKey
-        }
-
-        guard let baseURL = URL(string: configuration.baseURL) else {
-            throw DeepSeekClientError.invalidBaseURL(configuration.baseURL)
-        }
-
-        let endpoint = baseURL.appending(path: SourceCompletionDefaults.betaCompletionsPath)
-
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(
-            FIMCompletionRequest(
-                model: SourceCompletionDefaults.model,
-                prompt: prefix,
-                suffix: suffix
-            )
-        )
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw DeepSeekClientError.invalidResponse
-        }
-
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            if let errorResponse = try? decoder.decode(DeepSeekErrorResponse.self, from: data) {
-                throw DeepSeekClientError.serverError(errorResponse.error.message)
-            }
-            let fallback = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
-            throw DeepSeekClientError.serverError(fallback)
-        }
-
-        let completion = try decoder.decode(FIMCompletionResponse.self, from: data)
-        let rawOutput = completion.choices.first?.text ?? ""
-        let output = SourceCompletionSanitizer.sanitize(
-            rawOutput,
-            maxUTF16Length: SourceCompletionDefaults.maxTokens * 4
-        )
-
-        guard !output.isEmpty else {
-            throw DeepSeekClientError.emptyOutput
-        }
-
-        return output
-    }
 }
 private struct ChatCompletionRequest: Encodable {
     var model: String
@@ -164,13 +109,6 @@ private struct ChatCompletionResponse: Decodable {
     }
 }
 
-private struct FIMCompletionResponse: Decodable {
-    var choices: [Choice]
-
-    struct Choice: Decodable {
-        var text: String
-    }
-}
 
 private struct DeepSeekErrorResponse: Decodable {
     var error: APIError

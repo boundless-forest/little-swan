@@ -5,7 +5,6 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var debounceMilliseconds: Int
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
-    public var sourceEnglishLayout: SourceEnglishLayout
     public var toggleShortcut: KeyboardShortcutConfiguration
 
     public init(
@@ -13,14 +12,12 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         debounceMilliseconds: Int = 700,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
-        sourceEnglishLayout: SourceEnglishLayout = .horizontal,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut
     ) {
         self.provider = provider
         self.debounceMilliseconds = debounceMilliseconds
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
-        self.sourceEnglishLayout = sourceEnglishLayout
         self.toggleShortcut = toggleShortcut
     }
 
@@ -31,7 +28,6 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case debounceMilliseconds
         case defaultWritingStyle
         case panelContentSize
-        case sourceEnglishLayout
         case toggleShortcut
     }
 
@@ -47,7 +43,6 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
         debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
-        sourceEnglishLayout = try container.decodeIfPresent(SourceEnglishLayout.self, forKey: .sourceEnglishLayout) ?? .horizontal
         toggleShortcut = try container.decodeIfPresent(
             KeyboardShortcutConfiguration.self,
             forKey: .toggleShortcut
@@ -125,13 +120,15 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable {
     }
 
     private static func developmentModelMigration(_ model: String) -> String {
-        model == "deepseek-v4-flash" ? SourceCompletionDefaults.model : model
+        model == "deepseek-v4-flash" ? Self.defaultModel : model
     }
+
+    public static let defaultModel = "deepseek-v4-pro"
 
     public static let deepSeekDefault = ProviderConfiguration(
         name: "DeepSeek",
         baseURL: "https://api.deepseek.com",
         apiKey: "",
-        model: SourceCompletionDefaults.model
+        model: Self.defaultModel
     )
 }
