@@ -21,6 +21,7 @@ final class TranslationViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var sourceDrafts: [SourceDraft]
     @Published private(set) var selectedSourceDraftID: UUID
+    @Published private(set) var commonPhrases: [String]
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
@@ -39,6 +40,7 @@ final class TranslationViewModel: ObservableObject {
         let initialDraftCollection = sourceDraftStore?.collection ?? .default
         sourceDrafts = initialDraftCollection.drafts
         selectedSourceDraftID = initialDraftCollection.selectedDraftID
+        commonPhrases = configStore.configuration.commonPhrases.phrases
         inputText = initialDraftCollection.selectedDraft?.text ?? ""
         selectedStyle = configStore.configuration.defaultWritingStyle
 
@@ -47,6 +49,14 @@ final class TranslationViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] style in
                 self?.selectedStyle = style
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.commonPhrases.phrases)
+            .removeDuplicates()
+            .sink { [weak self] phrases in
+                self?.commonPhrases = phrases
             }
             .store(in: &cancellables)
 
@@ -68,6 +78,10 @@ final class TranslationViewModel: ObservableObject {
 
     func clearInput() {
         inputText = ""
+    }
+
+    func insertCommonPhrase(_ phrase: String) {
+        inputText = CommonPhraseInsertion.appending(phrase, to: inputText)
     }
 
     func selectSourceDraft(_ id: UUID) {

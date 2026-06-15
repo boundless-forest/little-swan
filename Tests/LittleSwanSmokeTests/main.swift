@@ -45,6 +45,7 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
     precondition(configuration.toggleShortcut.displayString == "⌃L")
+    precondition(configuration.commonPhrases == CommonPhraseCollection.default)
 }
 
 func testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed() throws {
@@ -167,6 +168,79 @@ func testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.toggleShortcut == .defaultToggleShortcut)
+}
+
+func testCommonPhraseCollectionNormalizesPhrases() {
+    let longPhrase = String(repeating: "x", count: CommonPhraseCollection.maximumPhraseLength + 8)
+    let multiLinePhrase = """
+    Please review the following plan:
+    - Check the diff
+    - Run the tests
+    """
+    let collection = CommonPhraseCollection(phrases: [
+        "  Thanks!  ",
+        "",
+        "thanks!",
+        longPhrase,
+        multiLinePhrase
+    ])
+
+    precondition(CommonPhraseCollection.maximumPhraseLength >= 10_000)
+    precondition(collection.phrases.count == 3)
+    precondition(collection.phrases[0] == "Thanks!")
+    precondition(collection.phrases[1].count == CommonPhraseCollection.maximumPhraseLength)
+    precondition(collection.phrases[2].contains("- Run the tests"))
+}
+
+func testCommonPhraseInsertionAppendsWithReadableSpacing() {
+    precondition(CommonPhraseInsertion.appending("Thanks!", to: "") == "Thanks!")
+    precondition(CommonPhraseInsertion.appending("Thanks!", to: "Hi") == "Hi Thanks!")
+    precondition(CommonPhraseInsertion.appending("Thanks!", to: "Hi ") == "Hi Thanks!")
+    precondition(CommonPhraseInsertion.appending("  Thanks!  ", to: "Hi\n") == "Hi\nThanks!")
+    precondition(CommonPhraseInsertion.appending("  ", to: "Hi") == "Hi")
+}
+
+func testConfigurationDecodesPersistedCommonPhrases() throws {
+    let persistedJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700,
+      "commonPhrases": {
+        "phrases": ["  Thanks!  ", "", "thanks!", "I'll follow up."]
+      }
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
+    let encoded = try JSONEncoder().encode(configuration)
+    let object = try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+    let commonPhrases = object?["commonPhrases"] as? [String: Any]
+
+    precondition(configuration.commonPhrases.phrases == ["Thanks!", "I'll follow up."])
+    precondition(commonPhrases?["phrases"] as? [String] == ["Thanks!", "I'll follow up."])
+}
+
+func testConfigurationDecodesLegacySettingsWithDefaultCommonPhrases() throws {
+    let legacyJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "debounceMilliseconds": 700
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
+
+    precondition(configuration.commonPhrases == CommonPhraseCollection.default)
 }
 
 func testKeyboardShortcutRejectsMissingModifierOrKey() {
@@ -515,6 +589,10 @@ try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationIgnoresLegacySourceEnglishLayoutPreference()
 try testConfigurationDecodesPersistedToggleShortcut()
 try testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut()
+testCommonPhraseCollectionNormalizesPhrases()
+testCommonPhraseInsertionAppendsWithReadableSpacing()
+try testConfigurationDecodesPersistedCommonPhrases()
+try testConfigurationDecodesLegacySettingsWithDefaultCommonPhrases()
 testKeyboardShortcutRejectsMissingModifierOrKey()
 try testKeyboardShortcutDecodingMasksUnsupportedModifiers()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut()

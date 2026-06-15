@@ -7,7 +7,8 @@ struct MainPanelView: View {
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
 
-    private let editorContentPadding: CGFloat = 8
+    private let placeholderTopPadding: CGFloat = 2
+    private let placeholderLeadingPadding: CGFloat = 8
     // TextEditor is backed by NSTextView, whose text container adds this default horizontal inset.
     private let textEditorLineFragmentPadding: CGFloat = 5
 
@@ -59,6 +60,8 @@ struct MainPanelView: View {
 
                 Spacer(minLength: 4)
 
+                commonPhrasesMenu
+
                 Button {
                     viewModel.clearInput()
                     isInputFocused = true
@@ -85,8 +88,8 @@ struct MainPanelView: View {
                     Text("Type in any language")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
-                        .padding(.top, editorContentPadding)
-                        .padding(.leading, editorContentPadding + textEditorLineFragmentPadding)
+                        .padding(.top, placeholderTopPadding)
+                        .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
                         .allowsHitTesting(false)
                 }
             }
@@ -98,6 +101,44 @@ struct MainPanelView: View {
                 .stroke(Color(nsColor: .separatorColor))
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var commonPhrasesMenu: some View {
+        Menu {
+            if viewModel.commonPhrases.isEmpty {
+                Text("No common phrases")
+            } else {
+                ForEach(viewModel.commonPhrases, id: \.self) { phrase in
+                    Button {
+                        viewModel.insertCommonPhrase(phrase)
+                        isInputFocused = true
+                    } label: {
+                        Text(commonPhraseMenuTitle(phrase))
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "text.badge.plus")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .disabled(viewModel.commonPhrases.isEmpty)
+        .help(viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase")
+    }
+
+    private func commonPhraseMenuTitle(_ phrase: String) -> String {
+        let oneLine = phrase
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .first ?? ""
+        guard !oneLine.isEmpty else { return "Untitled phrase" }
+
+        let maximumLength = 72
+        if oneLine.count <= maximumLength {
+            return oneLine
+        }
+
+        return String(oneLine.prefix(maximumLength - 1)) + "…"
     }
 
     private var outputView: some View {

@@ -6,19 +6,22 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var toggleShortcut: KeyboardShortcutConfiguration
+    public var commonPhrases: CommonPhraseCollection
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
-        toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut
+        toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
+        commonPhrases: CommonPhraseCollection = .default
     ) {
         self.provider = provider
         self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
+        self.commonPhrases = commonPhrases.normalized()
     }
 
     public static let `default` = AppConfiguration()
@@ -29,6 +32,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case defaultWritingStyle
         case panelContentSize
         case toggleShortcut
+        case commonPhrases
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -49,6 +53,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             KeyboardShortcutConfiguration.self,
             forKey: .toggleShortcut
         ) ?? .defaultToggleShortcut
+        commonPhrases = try container.decodeIfPresent(
+            CommonPhraseCollection.self,
+            forKey: .commonPhrases
+        )?.normalized() ?? .default
 
         if let contentSize = try container.decodeIfPresent(
             PanelContentSizeConfiguration.self,
@@ -67,6 +75,62 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         } else {
             panelContentSize = PanelPresentation.defaultContentSize
         }
+    }
+}
+
+public struct CommonPhraseCollection: Codable, Equatable, Sendable {
+    public static let maximumPhraseCount = 24
+    public static let maximumPhraseLength = 10_000
+
+    public var phrases: [String]
+
+    public init(phrases: [String]) {
+        self.phrases = Self.normalizedPhrases(phrases)
+    }
+
+    public func normalized() -> CommonPhraseCollection {
+        CommonPhraseCollection(phrases: phrases)
+    }
+
+    public static func normalizedPhrases(_ phrases: [String]) -> [String] {
+        var seen = Set<String>()
+
+        return phrases.compactMap { phrase in
+            let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return nil }
+
+            let limited = String(trimmed.prefix(maximumPhraseLength))
+            let key = limited.lowercased()
+            guard !seen.contains(key) else { return nil }
+            seen.insert(key)
+            return limited
+        }
+        .prefix(maximumPhraseCount)
+        .map { $0 }
+    }
+
+    public static let `default` = CommonPhraseCollection(phrases: [
+        "Thank you!",
+        "Sounds good.",
+        "Could you please take a look?",
+        "Let me know what you think.",
+        "I’ll follow up soon.",
+        "Sorry for the delay.",
+        "No worries.",
+        "Best regards,"
+    ])
+}
+
+public enum CommonPhraseInsertion {
+    public static func appending(_ phrase: String, to draft: String) -> String {
+        let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return draft }
+
+        if draft.isEmpty || draft.hasSuffix(" ") || draft.hasSuffix("\n") {
+            return draft + phrase
+        }
+
+        return draft + " " + phrase
     }
 }
 

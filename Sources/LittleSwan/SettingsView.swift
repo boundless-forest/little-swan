@@ -9,6 +9,8 @@ struct SettingsView: View {
     @State private var isAPIKeyVisible = false
     @State private var selectedTab: SettingsTab = .provider
     @State private var saveFeedbackTask: Task<Void, Never>?
+    @State private var selectedCommonPhraseIndex = 0
+    @FocusState private var isCommonPhraseEditorFocused: Bool
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -61,7 +63,7 @@ struct SettingsView: View {
             }
         }
         .padding(22)
-        .frame(width: 760, height: 390)
+        .frame(width: 760, height: 510)
         .onChange(of: draft) { _, _ in
             clearSaveFeedback()
         }
@@ -121,6 +123,8 @@ struct SettingsView: View {
             providerGroup
         case .translation:
             translationGroup
+        case .commonPhrases:
+            commonPhrasesGroup
         case .shortcuts:
             shortcutsGroup
         }
@@ -214,6 +218,146 @@ struct SettingsView: View {
         }
     }
 
+    private var commonPhrasesGroup: some View {
+        GroupBox("Common phrases") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    Text("Add one reusable phrase or text block per entry. These appear in the source header’s phrase menu and can be inserted into the current draft with one click.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            Text("Phrases")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+
+                            Spacer()
+
+                            Button {
+                                addCommonPhrase()
+                            } label: {
+                                Label("New", systemImage: "plus")
+                            }
+                            .controlSize(.small)
+                            .disabled(draft.commonPhrases.phrases.count >= CommonPhraseCollection.maximumPhraseCount)
+                            .help("Create a new common phrase")
+                        }
+
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if draft.commonPhrases.phrases.isEmpty {
+                                    Text("No common phrases yet. Click New to add one.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, minHeight: 96)
+                                } else {
+                                    ForEach(draft.commonPhrases.phrases.indices, id: \.self) { index in
+                                        commonPhraseRow(index)
+                                    }
+                                }
+                            }
+                            .padding(1)
+                        }
+                    }
+                    .frame(width: 220)
+                    .frame(minHeight: 270)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        if draft.commonPhrases.phrases.isEmpty {
+                            Text("Select or add a phrase to edit it here.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        } else {
+                            HStack(spacing: 8) {
+                                Text("Edit selected phrase")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+
+                                Spacer()
+
+                                Button(role: .destructive) {
+                                    removeSelectedCommonPhrase()
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                .controlSize(.small)
+                                .disabled(selectedValidCommonPhraseIndex == nil)
+                                .help("Delete the selected common phrase")
+                            }
+
+                            TextEditor(text: selectedCommonPhraseBinding)
+                                .font(.system(size: 13))
+                                .scrollContentBackground(.hidden)
+                                .background(Color(nsColor: .textBackgroundColor))
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color(nsColor: .separatorColor))
+                                )
+                                .help("Paste or edit a large multi-line text block here.")
+                                .focused($isCommonPhraseEditorFocused)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 270)
+                }
+
+                HStack {
+                    Text(commonPhraseLimitText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("Restore defaults") {
+                        draft.commonPhrases = .default
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func commonPhraseRow(_ index: Int) -> some View {
+        HStack(alignment: .center, spacing: 6) {
+            Button {
+                selectedCommonPhraseIndex = index
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(commonPhrasePreview(for: index))
+                        .font(.system(size: 12))
+                        .lineLimit(2)
+                        .foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Text(commonPhraseDetailText(for: index))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(index == selectedValidCommonPhraseIndex ? Color.accentColor.opacity(0.12) : Color(nsColor: .textBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(index == selectedValidCommonPhraseIndex ? Color.accentColor.opacity(0.35) : Color(nsColor: .separatorColor))
+                )
+            }
+            .buttonStyle(.plain)
+            .help("Select phrase \(index + 1) to edit")
+
+        }
+    }
+
     private var shortcutsGroup: some View {
         GroupBox("Shortcuts") {
             VStack(alignment: .leading, spacing: 12) {
@@ -269,6 +413,64 @@ struct SettingsView: View {
             || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
             || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
             || draft.toggleShortcut != configStore.configuration.toggleShortcut
+            || draft.commonPhrases != configStore.configuration.commonPhrases
+    }
+
+    private var commonPhraseLimitText: String {
+        let normalizedCount = draft.commonPhrases.normalized().phrases.count
+        return "\(normalizedCount)/\(CommonPhraseCollection.maximumPhraseCount) phrases · up to \(CommonPhraseCollection.maximumPhraseLength.formatted()) characters each"
+    }
+
+    private var selectedValidCommonPhraseIndex: Int? {
+        guard !draft.commonPhrases.phrases.isEmpty else { return nil }
+        return min(max(selectedCommonPhraseIndex, 0), draft.commonPhrases.phrases.count - 1)
+    }
+
+    private var selectedCommonPhraseBinding: Binding<String> {
+        Binding(
+            get: {
+                guard let index = selectedValidCommonPhraseIndex else { return "" }
+                return draft.commonPhrases.phrases[index]
+            },
+            set: { newValue in
+                guard let index = selectedValidCommonPhraseIndex else { return }
+                draft.commonPhrases.phrases[index] = String(newValue.prefix(CommonPhraseCollection.maximumPhraseLength))
+            }
+        )
+    }
+
+    private func addCommonPhrase() {
+        guard draft.commonPhrases.phrases.count < CommonPhraseCollection.maximumPhraseCount else { return }
+        draft.commonPhrases.phrases.append("")
+        selectedCommonPhraseIndex = draft.commonPhrases.phrases.count - 1
+        DispatchQueue.main.async {
+            isCommonPhraseEditorFocused = true
+        }
+    }
+
+    private func removeCommonPhrase(at index: Int) {
+        guard draft.commonPhrases.phrases.indices.contains(index) else { return }
+        draft.commonPhrases.phrases.remove(at: index)
+        selectedCommonPhraseIndex = min(selectedCommonPhraseIndex, max(draft.commonPhrases.phrases.count - 1, 0))
+    }
+
+    private func removeSelectedCommonPhrase() {
+        guard let index = selectedValidCommonPhraseIndex else { return }
+        removeCommonPhrase(at: index)
+    }
+
+    private func commonPhrasePreview(for index: Int) -> String {
+        guard draft.commonPhrases.phrases.indices.contains(index) else { return "" }
+        let phrase = draft.commonPhrases.phrases[index].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return "New phrase" }
+        return phrase.replacingOccurrences(of: "\n", with: " ")
+    }
+
+    private func commonPhraseDetailText(for index: Int) -> String {
+        guard draft.commonPhrases.phrases.indices.contains(index) else { return "" }
+        let phrase = draft.commonPhrases.phrases[index]
+        let lineCount = max(phrase.components(separatedBy: .newlines).count, 1)
+        return "\(phrase.count.formatted()) chars · \(lineCount) line\(lineCount == 1 ? "" : "s")"
     }
 
     private var defaultEditableConfiguration: AppConfiguration {
@@ -277,7 +479,8 @@ struct SettingsView: View {
             debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
-            toggleShortcut: .defaultToggleShortcut
+            toggleShortcut: .defaultToggleShortcut,
+            commonPhrases: .default
         )
     }
 
@@ -294,8 +497,10 @@ struct SettingsView: View {
 
         var nextConfiguration = draft
         nextConfiguration.panelContentSize = configStore.configuration.panelContentSize
+        nextConfiguration.commonPhrases = nextConfiguration.commonPhrases.normalized()
         configStore.configuration = nextConfiguration
         configStore.save()
+        draft = nextConfiguration
         didSave = configStore.lastError == nil
 
         saveFeedbackTask?.cancel()
@@ -325,6 +530,7 @@ struct SettingsView: View {
 private enum SettingsTab: String, CaseIterable, Identifiable {
     case provider
     case translation
+    case commonPhrases
     case shortcuts
 
     var id: String { rawValue }
@@ -335,6 +541,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "Provider"
         case .translation:
             "Translation"
+        case .commonPhrases:
+            "Common phrases"
         case .shortcuts:
             "Shortcuts"
         }
@@ -346,6 +554,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
             "network"
         case .translation:
             "textformat"
+        case .commonPhrases:
+            "text.badge.plus"
         case .shortcuts:
             "keyboard"
         }
