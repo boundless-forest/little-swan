@@ -134,6 +134,30 @@ public enum CommonPhraseInsertion {
     }
 }
 
+public enum CommonPhraseDisplay {
+    public static let defaultMenuTitleLength = 36
+
+    public static func menuTitle(
+        for phrase: String,
+        maximumLength: Int = defaultMenuTitleLength
+    ) -> String {
+        let fallback = "Untitled phrase"
+        guard maximumLength > 1 else { return fallback }
+
+        let firstUsefulLine = phrase
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty } ?? ""
+        guard !firstUsefulLine.isEmpty else { return fallback }
+
+        if firstUsefulLine.count <= maximumLength {
+            return firstUsefulLine
+        }
+
+        return String(firstUsefulLine.prefix(maximumLength - 1)) + "…"
+    }
+}
+
 public enum TranslationTiming {
     public static let minimumRealtimeDelayMilliseconds = 100
     public static let maximumRealtimeDelayMilliseconds = 1_000

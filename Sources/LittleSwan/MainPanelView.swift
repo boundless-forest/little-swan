@@ -113,7 +113,7 @@ struct MainPanelView: View {
                         viewModel.insertCommonPhrase(phrase)
                         isInputFocused = true
                     } label: {
-                        Text(commonPhraseMenuTitle(phrase))
+                        Text(CommonPhraseDisplay.menuTitle(for: phrase))
                     }
                 }
             }
@@ -124,21 +124,6 @@ struct MainPanelView: View {
         .fixedSize()
         .disabled(viewModel.commonPhrases.isEmpty)
         .help(viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase")
-    }
-
-    private func commonPhraseMenuTitle(_ phrase: String) -> String {
-        let oneLine = phrase
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .newlines)
-            .first ?? ""
-        guard !oneLine.isEmpty else { return "Untitled phrase" }
-
-        let maximumLength = 72
-        if oneLine.count <= maximumLength {
-            return oneLine
-        }
-
-        return String(oneLine.prefix(maximumLength - 1)) + "…"
     }
 
     private var outputView: some View {

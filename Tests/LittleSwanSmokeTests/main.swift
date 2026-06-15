@@ -200,6 +200,17 @@ func testCommonPhraseInsertionAppendsWithReadableSpacing() {
     precondition(CommonPhraseInsertion.appending("  ", to: "Hi") == "Hi")
 }
 
+func testCommonPhraseDisplayCompactsLongMenuTitles() {
+    let longPhrase = "deg ov-agent-api development workflow: Make the changes in the worktree first, then review everything before opening a pull request."
+    let title = CommonPhraseDisplay.menuTitle(for: longPhrase)
+
+    precondition(title.count == CommonPhraseDisplay.defaultMenuTitleLength)
+    precondition(title.hasSuffix("…"))
+    precondition(!title.contains("pull request"))
+    precondition(CommonPhraseDisplay.menuTitle(for: "\n\n  Second line is useful  \nignored") == "Second line is useful")
+    precondition(CommonPhraseDisplay.menuTitle(for: "  \n ") == "Untitled phrase")
+}
+
 func testConfigurationDecodesPersistedCommonPhrases() throws {
     let persistedJSON = """
     {
@@ -591,6 +602,7 @@ try testConfigurationDecodesPersistedToggleShortcut()
 try testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut()
 testCommonPhraseCollectionNormalizesPhrases()
 testCommonPhraseInsertionAppendsWithReadableSpacing()
+testCommonPhraseDisplayCompactsLongMenuTitles()
 try testConfigurationDecodesPersistedCommonPhrases()
 try testConfigurationDecodesLegacySettingsWithDefaultCommonPhrases()
 testKeyboardShortcutRejectsMissingModifierOrKey()
