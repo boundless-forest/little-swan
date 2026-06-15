@@ -109,7 +109,9 @@ final class TranslationViewModel: ObservableObject {
             return
         }
 
-        let debounce = max(configStore.configuration.debounceMilliseconds, 250)
+        let debounce = TranslationTiming.clampedDebounceMilliseconds(
+            configStore.configuration.debounceMilliseconds
+        )
         let style = selectedStyle
 
         translationTask = Task { [weak self] in

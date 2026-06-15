@@ -9,13 +9,13 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
-        debounceMilliseconds: Int = 700,
+        debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut
     ) {
         self.provider = provider
-        self.debounceMilliseconds = debounceMilliseconds
+        self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
@@ -41,7 +41,9 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         let legacyContainer = try decoder.container(keyedBy: LegacyCodingKeys.self)
 
         provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
-        debounceMilliseconds = try container.decode(Int.self, forKey: .debounceMilliseconds)
+        debounceMilliseconds = TranslationTiming.migratedDebounceMilliseconds(
+            try container.decodeIfPresent(Int.self, forKey: .debounceMilliseconds)
+        )
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
         toggleShortcut = try container.decodeIfPresent(
             KeyboardShortcutConfiguration.self,
@@ -65,6 +67,30 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         } else {
             panelContentSize = PanelPresentation.defaultContentSize
         }
+    }
+}
+
+public enum TranslationTiming {
+    public static let minimumRealtimeDelayMilliseconds = 100
+    public static let maximumRealtimeDelayMilliseconds = 1_000
+    public static let defaultRealtimeDelayMilliseconds = 200
+    public static let legacyDefaultRealtimeDelayMilliseconds = 700
+
+    public static func migratedDebounceMilliseconds(_ value: Int?) -> Int {
+        guard let value else { return defaultRealtimeDelayMilliseconds }
+
+        if value == legacyDefaultRealtimeDelayMilliseconds {
+            return defaultRealtimeDelayMilliseconds
+        }
+
+        return clampedDebounceMilliseconds(value)
+    }
+
+    public static func clampedDebounceMilliseconds(_ value: Int) -> Int {
+        min(
+            max(value, minimumRealtimeDelayMilliseconds),
+            maximumRealtimeDelayMilliseconds
+        )
     }
 }
 
@@ -120,10 +146,10 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable {
     }
 
     private static func developmentModelMigration(_ model: String) -> String {
-        model == "deepseek-v4-flash" ? Self.defaultModel : model
+        model == "deepseek-v4-pro" ? Self.defaultModel : model
     }
 
-    public static let defaultModel = "deepseek-v4-pro"
+    public static let defaultModel = "deepseek-v4-flash"
 
     public static let deepSeekDefault = ProviderConfiguration(
         name: "DeepSeek",

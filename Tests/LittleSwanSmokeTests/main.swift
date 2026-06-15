@@ -32,21 +32,41 @@ func testPromptBuilderPreservesUserCodeBlockInput() {
     precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
 }
 
-func testDefaultConfigurationUsesDeepSeekPro() {
+func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     let configuration = AppConfiguration.default
 
     precondition(configuration.provider.name == "DeepSeek")
     precondition(configuration.provider.baseURL == "https://api.deepseek.com")
-    precondition(configuration.provider.model == "deepseek-v4-pro")
+    precondition(configuration.provider.model == "deepseek-v4-flash")
     precondition(configuration.provider.apiKey.isEmpty)
-    precondition(configuration.debounceMilliseconds == 700)
+    precondition(configuration.debounceMilliseconds == TranslationTiming.defaultRealtimeDelayMilliseconds)
+    precondition(configuration.debounceMilliseconds == 200)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
     precondition(configuration.toggleShortcut.displayString == "⌃L")
 }
 
-func testConfigurationMigratesDeepSeekFlashToProDuringDevelopment() throws {
+func testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed() throws {
+    let persistedJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-pro"
+      },
+      "debounceMilliseconds": 700
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
+
+    precondition(configuration.provider.model == "deepseek-v4-flash")
+    precondition(configuration.debounceMilliseconds == TranslationTiming.defaultRealtimeDelayMilliseconds)
+}
+
+func testConfigurationClampsSlowPersistedRealtimeDelay() throws {
     let persistedJSON = """
     {
       "provider": {
@@ -55,13 +75,14 @@ func testConfigurationMigratesDeepSeekFlashToProDuringDevelopment() throws {
         "apiKey": "",
         "model": "deepseek-v4-flash"
       },
-      "debounceMilliseconds": 700
+      "debounceMilliseconds": 5000
     }
     """.data(using: .utf8)!
 
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: persistedJSON)
 
-    precondition(configuration.provider.model == "deepseek-v4-pro")
+    precondition(configuration.debounceMilliseconds == TranslationTiming.maximumRealtimeDelayMilliseconds)
+    precondition(AppConfiguration(debounceMilliseconds: 0).debounceMilliseconds == TranslationTiming.minimumRealtimeDelayMilliseconds)
 }
 
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
@@ -487,8 +508,9 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testPromptBuilderPreservesUserCodeBlockInput()
-testDefaultConfigurationUsesDeepSeekPro()
-try testConfigurationMigratesDeepSeekFlashToProDuringDevelopment()
+testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay()
+try testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed()
+try testConfigurationClampsSlowPersistedRealtimeDelay()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationIgnoresLegacySourceEnglishLayoutPreference()
 try testConfigurationDecodesPersistedToggleShortcut()

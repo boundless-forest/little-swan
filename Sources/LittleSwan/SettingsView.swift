@@ -169,7 +169,7 @@ struct SettingsView: View {
 
                 settingsRow("Model") {
                     Picker("Model", selection: $draft.provider.model) {
-                        Text("deepseek-v4-pro").tag("deepseek-v4-pro")
+                        Text("deepseek-v4-flash").tag("deepseek-v4-flash")
                     }
                     .disabled(true)
                     .labelsHidden()
@@ -188,7 +188,7 @@ struct SettingsView: View {
                         Stepper(
                             "\(draft.debounceMilliseconds) ms",
                             value: $draft.debounceMilliseconds,
-                            in: 250...2000,
+                            in: TranslationTiming.minimumRealtimeDelayMilliseconds...TranslationTiming.maximumRealtimeDelayMilliseconds,
                             step: 50
                         )
 
@@ -274,7 +274,7 @@ struct SettingsView: View {
     private var defaultEditableConfiguration: AppConfiguration {
         AppConfiguration(
             provider: .deepSeekDefault,
-            debounceMilliseconds: 700,
+            debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut
