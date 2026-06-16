@@ -31,6 +31,8 @@ final class FloatingPanelController {
         )
 
         panel.title = "Little Swan"
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating
@@ -50,6 +52,15 @@ final class FloatingPanelController {
         titlebarHostingView.frame = NSRect(x: 0, y: 0, width: 112, height: 28)
         titlebarAccessoryController.view = titlebarHostingView
         panel.addTitlebarAccessoryViewController(titlebarAccessoryController)
+
+        let leftTitleController = NSTitlebarAccessoryViewController()
+        leftTitleController.layoutAttribute = .left
+        let leftTitleView = NSHostingView(
+            rootView: MainPanelTitleView()
+        )
+        leftTitleView.frame = NSRect(x: 0, y: 0, width: 100, height: 28)
+        leftTitleController.view = leftTitleView
+        panel.addTitlebarAccessoryViewController(leftTitleController)
 
         observeScreenChanges()
     }

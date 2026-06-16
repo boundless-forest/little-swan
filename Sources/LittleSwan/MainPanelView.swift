@@ -381,3 +381,21 @@ private struct TooltipBubble: View {
             .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
     }
 }
+
+struct MainPanelTitleView: View {
+    private static let titleFontName = "Noteworthy"
+    private static let titleFontSize: CGFloat = 14
+
+    var body: some View {
+        Text("Little Swan")
+            .font(font)
+            .foregroundStyle(.primary)
+    }
+
+    private var font: Font {
+        if let nsFont = NSFont(name: Self.titleFontName, size: Self.titleFontSize) {
+            return Font(nsFont)
+        }
+        return .system(size: Self.titleFontSize)
+    }
+}
