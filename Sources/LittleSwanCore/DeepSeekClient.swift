@@ -43,6 +43,32 @@ public final class DeepSeekClient: Sendable {
         style: WritingStyle,
         configuration: ProviderConfiguration
     ) async throws -> String {
+        try await complete(
+            messages: PromptBuilder.messages(input: input, style: style),
+            temperature: 0.35,
+            trimsOutput: true,
+            configuration: configuration
+        )
+    }
+
+    public func polishInput(
+        input: String,
+        configuration: ProviderConfiguration
+    ) async throws -> String {
+        try await complete(
+            messages: PromptBuilder.inputPolishMessages(input: input),
+            temperature: 0.2,
+            trimsOutput: false,
+            configuration: configuration
+        )
+    }
+
+    private func complete(
+        messages: [DeepSeekMessage],
+        temperature: Double,
+        trimsOutput: Bool,
+        configuration: ProviderConfiguration
+    ) async throws -> String {
         let apiKey = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else {
             throw DeepSeekClientError.missingAPIKey
@@ -60,8 +86,8 @@ public final class DeepSeekClient: Sendable {
         request.httpBody = try encoder.encode(
             ChatCompletionRequest(
                 model: configuration.model,
-                messages: PromptBuilder.messages(input: input, style: style),
-                temperature: 0.35,
+                messages: messages,
+                temperature: temperature,
                 stream: false
             )
         )
@@ -81,13 +107,14 @@ public final class DeepSeekClient: Sendable {
         }
 
         let completion = try decoder.decode(ChatCompletionResponse.self, from: data)
-        let output = completion.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawOutput = completion.choices.first?.message.content
+        let trimmedOutput = rawOutput?.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        guard let output, !output.isEmpty else {
+        guard let rawOutput, let trimmedOutput, !trimmedOutput.isEmpty else {
             throw DeepSeekClientError.emptyOutput
         }
 
-        return output
+        return trimsOutput ? trimmedOutput : rawOutput
     }
 }
 private struct ChatCompletionRequest: Encodable {

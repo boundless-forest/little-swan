@@ -32,6 +32,21 @@ func testPromptBuilderPreservesUserCodeBlockInput() {
     precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
 }
 
+func testPromptBuilderProducesSameLanguageInputPolishPrompt() {
+    let input = "今天语音输入有一些错别字，需要帮我顺一下逻辑。"
+    let messages = PromptBuilder.inputPolishMessages(input: input)
+
+    precondition(messages.count == 2)
+    precondition(messages[0].role == "system")
+    precondition(messages[0].content.contains("proofreads dictated or quickly typed source text"))
+    precondition(messages[0].content.contains("keep the output in that same language"))
+    precondition(messages[0].content.contains("Correct speech-recognition mistakes"))
+    precondition(messages[0].content.contains("Improve logical flow and clarity"))
+    precondition(messages[0].content.contains("Do not translate the text into another language."))
+    precondition(messages[0].content.contains("Return only the polished source text"))
+    precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
+}
+
 func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     let configuration = AppConfiguration.default
 
@@ -593,6 +608,7 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testPromptBuilderPreservesUserCodeBlockInput()
+testPromptBuilderProducesSameLanguageInputPolishPrompt()
 testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay()
 try testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed()
 try testConfigurationClampsSlowPersistedRealtimeDelay()

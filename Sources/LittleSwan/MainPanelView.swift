@@ -63,6 +63,21 @@ struct MainPanelView: View {
                 commonPhrasesMenu
 
                 Button {
+                    viewModel.polishInput()
+                    isInputFocused = true
+                } label: {
+                    if viewModel.isPolishingInput {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "wand.and.stars")
+                    }
+                }
+                .buttonStyle(.borderless)
+                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPolishingInput)
+                .help("Polish input text")
+
+                Button {
                     viewModel.clearInput()
                     isInputFocused = true
                 } label: {

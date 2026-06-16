@@ -8,6 +8,7 @@ final class TranslationViewModel: ObservableObject {
     @Published var inputText = "" {
         didSet {
             sourceDraftStore?.updateSelectedDraftText(inputText)
+            cancelInputPolishIfNeededForUserEdit()
             scheduleTranslation()
         }
     }
@@ -18,6 +19,7 @@ final class TranslationViewModel: ObservableObject {
     }
 
     @Published var isLoading = false
+    @Published var isPolishingInput = false
     @Published var errorMessage: String?
     @Published private(set) var sourceDrafts: [SourceDraft]
     @Published private(set) var selectedSourceDraftID: UUID
@@ -27,6 +29,9 @@ final class TranslationViewModel: ObservableObject {
     private let sourceDraftStore: SourceDraftStore?
     private let client: DeepSeekClient
     private var translationTask: Task<Void, Never>?
+    private var inputPolishTask: Task<Void, Never>?
+    private var inputPolishRequestID = UUID()
+    private var isApplyingPolishedInput = false
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -77,7 +82,27 @@ final class TranslationViewModel: ObservableObject {
     }
 
     func clearInput() {
+        cancelInputPolish()
         inputText = ""
+    }
+
+    func polishInput() {
+        inputPolishTask?.cancel()
+        translationTask?.cancel()
+        isLoading = false
+
+        let originalInput = inputText
+        let trimmedInput = originalInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty else { return }
+
+        let requestID = UUID()
+        inputPolishRequestID = requestID
+        isPolishingInput = true
+        errorMessage = nil
+
+        inputPolishTask = Task { [weak self] in
+            await self?.polishInput(originalInput, requestID: requestID)
+        }
     }
 
     func insertCommonPhrase(_ phrase: String) {
@@ -101,11 +126,23 @@ final class TranslationViewModel: ObservableObject {
     }
 
     private func applySelectedDraft(_ draft: SourceDraft) {
+        cancelInputPolish()
         selectedSourceDraftID = draft.id
         outputText = ""
         errorMessage = nil
         isLoading = false
         inputText = draft.text
+    }
+
+    private func cancelInputPolishIfNeededForUserEdit() {
+        guard isPolishingInput, !isApplyingPolishedInput else { return }
+        cancelInputPolish()
+    }
+
+    private func cancelInputPolish() {
+        inputPolishTask?.cancel()
+        inputPolishRequestID = UUID()
+        isPolishingInput = false
     }
 
     func retryNow() {
@@ -180,5 +217,44 @@ final class TranslationViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    private func polishInput(_ originalInput: String, requestID: UUID) async {
+        guard configStore.isConfigured else {
+            errorMessage = DeepSeekClientError.missingAPIKey.localizedDescription
+            isPolishingInput = false
+            return
+        }
+
+        isPolishingInput = true
+        errorMessage = nil
+        defer {
+            if inputPolishRequestID == requestID {
+                isPolishingInput = false
+            }
+        }
+
+        do {
+            let polishedInput = try await client.polishInput(
+                input: originalInput,
+                configuration: configStore.configuration.provider
+            )
+
+            guard !Task.isCancelled else { return }
+            guard inputText == originalInput else { return }
+
+            isApplyingPolishedInput = true
+            defer { isApplyingPolishedInput = false }
+            inputText = polishedInput
+            errorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            guard inputText == originalInput else { return }
+            errorMessage = error.localizedDescription
+        }
+
+        isPolishingInput = false
     }
 }
