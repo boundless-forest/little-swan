@@ -47,6 +47,52 @@ func testPromptBuilderProducesSameLanguageInputPolishPrompt() {
     precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
 }
 
+func testPolishedInputAnimationTransformsChangedMiddleInPlace() {
+    let frames = PolishedInputAnimation.frames(
+        original: "Please send teh report today.",
+        polished: "Please send the report today."
+    )
+
+    precondition(!frames.isEmpty)
+    precondition(frames.last == "Please send the report today.")
+    precondition(frames.allSatisfy { $0.hasPrefix("Please send ") })
+}
+
+func testPolishedInputAnimationHighlightsRemovedAndAddedSegments() {
+    let frames = PolishedInputAnimation.highlightedFrames(
+        original: "Please send teh report today.",
+        polished: "Please send the report today."
+    )
+
+    precondition(frames.contains { frame in
+        frame.segments.contains { $0.kind == .removed && $0.text.contains("teh") }
+    })
+    precondition(frames.contains { frame in
+        frame.segments.contains { $0.kind == .added && $0.text.contains("the") }
+    })
+    precondition(frames.last?.segments == [
+        PolishedInputAnimation.Segment(text: "Please send the report today.", kind: .unchanged)
+    ])
+}
+
+func testPolishedInputAnimationOmitsFramesForIdenticalText() {
+    let frames = PolishedInputAnimation.frames(
+        original: "No changes needed.",
+        polished: "No changes needed."
+    )
+
+    precondition(frames.isEmpty)
+}
+
+func testPolishedInputAnimationCapsLongTextFrames() {
+    let original = "Start " + String(repeating: "a", count: 120) + " end"
+    let polished = "Start " + String(repeating: "b", count: 120) + " end"
+    let frames = PolishedInputAnimation.frames(original: original, polished: polished)
+
+    precondition(frames.count <= PolishedInputAnimation.maximumFrameCount)
+    precondition(frames.last == polished)
+}
+
 func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     let configuration = AppConfiguration.default
 
@@ -609,6 +655,10 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
 testPromptBuilderPreservesUserCodeBlockInput()
 testPromptBuilderProducesSameLanguageInputPolishPrompt()
+testPolishedInputAnimationTransformsChangedMiddleInPlace()
+testPolishedInputAnimationHighlightsRemovedAndAddedSegments()
+testPolishedInputAnimationOmitsFramesForIdenticalText()
+testPolishedInputAnimationCapsLongTextFrames()
 testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay()
 try testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed()
 try testConfigurationClampsSlowPersistedRealtimeDelay()

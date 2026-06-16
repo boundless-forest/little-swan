@@ -98,8 +98,11 @@ struct MainPanelView: View {
                     .scrollContentBackground(.hidden)
                     .focused($isInputFocused)
                     .padding(2)
+                    .opacity(viewModel.polishAnimationFrame == nil ? 1 : 0)
 
-                if viewModel.inputText.isEmpty {
+                if let polishAnimationFrame = viewModel.polishAnimationFrame {
+                    polishAnimationOverlay(polishAnimationFrame)
+                } else if viewModel.inputText.isEmpty {
                     Text("Type in any language")
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
@@ -116,6 +119,41 @@ struct MainPanelView: View {
                 .stroke(Color(nsColor: .separatorColor))
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func polishAnimationOverlay(_ frame: PolishedInputAnimation.Frame) -> some View {
+        ScrollView {
+            highlightedPolishText(for: frame)
+                .font(.system(size: 14))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, placeholderTopPadding + 2)
+                .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
+                .padding(.trailing, 8)
+                .padding(.bottom, 8)
+        }
+        .allowsHitTesting(false)
+    }
+
+    private func highlightedPolishText(for frame: PolishedInputAnimation.Frame) -> Text {
+        frame.segments.reduce(Text("")) { partialText, segment in
+            partialText + highlightedPolishSegment(segment)
+        }
+    }
+
+    private func highlightedPolishSegment(_ segment: PolishedInputAnimation.Segment) -> Text {
+        switch segment.kind {
+        case .unchanged:
+            return Text(segment.text)
+                .foregroundColor(.primary)
+        case .removed:
+            return Text(segment.text)
+                .foregroundColor(.red)
+                .strikethrough(true, color: .red)
+        case .added:
+            return Text(segment.text)
+                .foregroundColor(.green)
+                .underline(true, color: .green)
+        }
     }
 
     private var commonPhrasesMenu: some View {

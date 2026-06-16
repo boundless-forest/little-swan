@@ -21,6 +21,7 @@ final class TranslationViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isPolishingInput = false
     @Published var errorMessage: String?
+    @Published private(set) var polishAnimationFrame: PolishedInputAnimation.Frame?
     @Published private(set) var sourceDrafts: [SourceDraft]
     @Published private(set) var selectedSourceDraftID: UUID
     @Published private(set) var commonPhrases: [String]
@@ -135,7 +136,8 @@ final class TranslationViewModel: ObservableObject {
     }
 
     private func cancelInputPolishIfNeededForUserEdit() {
-        guard isPolishingInput, !isApplyingPolishedInput else { return }
+        guard !isApplyingPolishedInput else { return }
+        guard isPolishingInput else { return }
         cancelInputPolish()
     }
 
@@ -143,6 +145,7 @@ final class TranslationViewModel: ObservableObject {
         inputPolishTask?.cancel()
         inputPolishRequestID = UUID()
         isPolishingInput = false
+        polishAnimationFrame = nil
     }
 
     func retryNow() {
@@ -243,9 +246,11 @@ final class TranslationViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
             guard inputText == originalInput else { return }
 
-            isApplyingPolishedInput = true
-            defer { isApplyingPolishedInput = false }
-            inputText = polishedInput
+            await animatePolishedInput(
+                from: originalInput,
+                to: polishedInput,
+                requestID: requestID
+            )
             errorMessage = nil
         } catch is CancellationError {
             return
@@ -256,5 +261,35 @@ final class TranslationViewModel: ObservableObject {
         }
 
         isPolishingInput = false
+    }
+
+    private func animatePolishedInput(
+        from originalInput: String,
+        to polishedInput: String,
+        requestID: UUID
+    ) async {
+        let frames = PolishedInputAnimation.highlightedFrames(original: originalInput, polished: polishedInput)
+        guard !frames.isEmpty else { return }
+
+        for frame in frames {
+            guard !Task.isCancelled else { return }
+            guard inputPolishRequestID == requestID else { return }
+
+            polishAnimationFrame = frame
+
+            do {
+                try await Task.sleep(for: .milliseconds(45))
+            } catch {
+                return
+            }
+        }
+
+        guard !Task.isCancelled else { return }
+        guard inputPolishRequestID == requestID else { return }
+
+        polishAnimationFrame = nil
+        isApplyingPolishedInput = true
+        defer { isApplyingPolishedInput = false }
+        inputText = polishedInput
     }
 }
