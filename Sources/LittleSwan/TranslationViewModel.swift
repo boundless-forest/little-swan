@@ -21,6 +21,8 @@ final class TranslationViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var isPolishingInput = false
     @Published var errorMessage: String?
+    @Published private(set) var isRealtimeTranslationEnabled: Bool
+    @Published private(set) var pendingPolishedInput: String?
     @Published private(set) var polishAnimationFrame: PolishedInputAnimation.Frame?
     @Published private(set) var sourceDrafts: [SourceDraft]
     @Published private(set) var selectedSourceDraftID: UUID
@@ -49,6 +51,7 @@ final class TranslationViewModel: ObservableObject {
         commonPhrases = configStore.configuration.commonPhrases.phrases
         inputText = initialDraftCollection.selectedDraft?.text ?? ""
         selectedStyle = configStore.configuration.defaultWritingStyle
+        isRealtimeTranslationEnabled = configStore.configuration.realtimeTranslationEnabled
 
         configStore.$configuration
             .map(\.defaultWritingStyle)
@@ -63,6 +66,16 @@ final class TranslationViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] phrases in
                 self?.commonPhrases = phrases
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.realtimeTranslationEnabled)
+            .removeDuplicates()
+            .sink { [weak self] isEnabled in
+                guard let self, self.isRealtimeTranslationEnabled != isEnabled else { return }
+                self.isRealtimeTranslationEnabled = isEnabled
+                self.scheduleTranslation()
             }
             .store(in: &cancellables)
 
@@ -85,6 +98,19 @@ final class TranslationViewModel: ObservableObject {
     func clearInput() {
         cancelInputPolish()
         inputText = ""
+    }
+
+    func setRealtimeTranslationEnabled(_ isEnabled: Bool) {
+        guard isRealtimeTranslationEnabled != isEnabled else { return }
+
+        isRealtimeTranslationEnabled = isEnabled
+        configStore.configuration.realtimeTranslationEnabled = isEnabled
+        configStore.save()
+        scheduleTranslation()
+    }
+
+    func generateNow() {
+        translateNow(input: inputText, style: selectedStyle)
     }
 
     func polishInput() {
@@ -145,7 +171,24 @@ final class TranslationViewModel: ObservableObject {
         inputPolishTask?.cancel()
         inputPolishRequestID = UUID()
         isPolishingInput = false
+        pendingPolishedInput = nil
         polishAnimationFrame = nil
+    }
+
+    func acceptPolishedInput() {
+        guard let pendingPolishedInput else { return }
+
+        self.pendingPolishedInput = nil
+        polishAnimationFrame = nil
+        isApplyingPolishedInput = true
+        inputText = pendingPolishedInput
+        isApplyingPolishedInput = false
+    }
+
+    func rejectPolishedInput() {
+        pendingPolishedInput = nil
+        polishAnimationFrame = nil
+        scheduleTranslation()
     }
 
     func retryNow() {
@@ -159,6 +202,11 @@ final class TranslationViewModel: ObservableObject {
         guard !trimmedInput.isEmpty else {
             outputText = ""
             errorMessage = nil
+            isLoading = false
+            return
+        }
+
+        guard isRealtimeTranslationEnabled else {
             isLoading = false
             return
         }
@@ -287,9 +335,10 @@ final class TranslationViewModel: ObservableObject {
         guard !Task.isCancelled else { return }
         guard inputPolishRequestID == requestID else { return }
 
-        polishAnimationFrame = nil
-        isApplyingPolishedInput = true
-        defer { isApplyingPolishedInput = false }
-        inputText = polishedInput
+        pendingPolishedInput = polishedInput
+        polishAnimationFrame = PolishedInputAnimation.reviewFrame(
+            original: originalInput,
+            polished: polishedInput
+        )
     }
 }

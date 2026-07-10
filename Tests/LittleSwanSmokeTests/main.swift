@@ -75,6 +75,17 @@ func testPolishedInputAnimationHighlightsRemovedAndAddedSegments() {
     ])
 }
 
+func testPolishedInputReviewFrameShowsRemovedAndAddedTextTogether() {
+    let frame = PolishedInputAnimation.reviewFrame(
+        original: "Please send teh report today.",
+        polished: "Please send the report today."
+    )
+
+    precondition(frame?.segments.contains { $0.kind == .removed && $0.text.contains("teh") } == true)
+    precondition(frame?.segments.contains { $0.kind == .added && $0.text.contains("the") } == true)
+    precondition(PolishedInputAnimation.reviewFrame(original: "Same", polished: "Same") == nil)
+}
+
 func testPolishedInputAnimationOmitsFramesForIdenticalText() {
     let frames = PolishedInputAnimation.frames(
         original: "No changes needed.",
@@ -102,6 +113,7 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.provider.apiKey.isEmpty)
     precondition(configuration.debounceMilliseconds == TranslationTiming.defaultRealtimeDelayMilliseconds)
     precondition(configuration.debounceMilliseconds == 200)
+    precondition(configuration.realtimeTranslationEnabled)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
@@ -145,6 +157,14 @@ func testConfigurationClampsSlowPersistedRealtimeDelay() throws {
 
     precondition(configuration.debounceMilliseconds == TranslationTiming.maximumRealtimeDelayMilliseconds)
     precondition(AppConfiguration(debounceMilliseconds: 0).debounceMilliseconds == TranslationTiming.minimumRealtimeDelayMilliseconds)
+}
+
+func testConfigurationPersistsManualTranslationMode() throws {
+    let configuration = AppConfiguration(realtimeTranslationEnabled: false)
+    let data = try JSONEncoder().encode(configuration)
+    let decoded = try JSONDecoder().decode(AppConfiguration.self, from: data)
+
+    precondition(decoded.realtimeTranslationEnabled == false)
 }
 
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
@@ -657,11 +677,13 @@ testPromptBuilderPreservesUserCodeBlockInput()
 testPromptBuilderProducesSameLanguageInputPolishPrompt()
 testPolishedInputAnimationTransformsChangedMiddleInPlace()
 testPolishedInputAnimationHighlightsRemovedAndAddedSegments()
+testPolishedInputReviewFrameShowsRemovedAndAddedTextTogether()
 testPolishedInputAnimationOmitsFramesForIdenticalText()
 testPolishedInputAnimationCapsLongTextFrames()
 testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay()
 try testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed()
 try testConfigurationClampsSlowPersistedRealtimeDelay()
+try testConfigurationPersistsManualTranslationMode()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationIgnoresLegacySourceEnglishLayoutPreference()
 try testConfigurationDecodesPersistedToggleShortcut()

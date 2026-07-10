@@ -60,6 +60,18 @@ struct MainPanelView: View {
 
                 Spacer(minLength: 4)
 
+                Toggle(
+                    "Realtime",
+                    isOn: Binding(
+                        get: { viewModel.isRealtimeTranslationEnabled },
+                        set: { viewModel.setRealtimeTranslationEnabled($0) }
+                    )
+                )
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .fixedSize()
+                .help("Translate automatically while typing")
+
                 commonPhrasesMenu
 
                 Button {
@@ -101,7 +113,7 @@ struct MainPanelView: View {
                     .opacity(viewModel.polishAnimationFrame == nil ? 1 : 0)
 
                 if let polishAnimationFrame = viewModel.polishAnimationFrame {
-                    polishAnimationOverlay(polishAnimationFrame)
+                    polishReviewOverlay(polishAnimationFrame)
                 } else if viewModel.inputText.isEmpty {
                     Text("Type in any language")
                         .font(.system(size: 14))
@@ -121,17 +133,44 @@ struct MainPanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func polishAnimationOverlay(_ frame: PolishedInputAnimation.Frame) -> some View {
-        ScrollView {
-            highlightedPolishText(for: frame)
-                .font(.system(size: 14))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, placeholderTopPadding + 2)
-                .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
-                .padding(.trailing, 8)
-                .padding(.bottom, 8)
+    private func polishReviewOverlay(_ frame: PolishedInputAnimation.Frame) -> some View {
+        VStack(spacing: 0) {
+            ScrollView {
+                highlightedPolishText(for: frame)
+                    .font(.system(size: 14))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, placeholderTopPadding + 2)
+                    .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
+                    .padding(.trailing, 8)
+                    .padding(.bottom, 8)
+            }
+
+            if viewModel.pendingPolishedInput != nil {
+                Divider()
+
+                HStack(spacing: 8) {
+                    Text("Review polished changes")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("Reject") {
+                        viewModel.rejectPolishedInput()
+                        isInputFocused = true
+                    }
+
+                    Button("Accept") {
+                        viewModel.acceptPolishedInput()
+                        isInputFocused = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .controlSize(.small)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+            }
         }
-        .allowsHitTesting(false)
     }
 
     private func highlightedPolishText(for frame: PolishedInputAnimation.Frame) -> Text {
@@ -176,7 +215,9 @@ struct MainPanelView: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .disabled(viewModel.commonPhrases.isEmpty)
-        .help(viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase")
+        .help(
+            viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase"
+        )
     }
 
     private var outputView: some View {
@@ -203,33 +244,84 @@ struct MainPanelView: View {
 
                 Spacer(minLength: 4)
 
-                Label("Copied", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-                    .opacity(isCopyFeedbackVisible ? 1 : 0)
-                    .frame(width: 68, alignment: .trailing)
-
-                Button {
-                    copyOutput()
-                } label: {
-                    Image(systemName: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc")
+                if viewModel.isLoading {
+                    Label("Generating…", systemImage: "sparkles")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                } else if isCopyFeedbackVisible {
+                    Label("Copied", systemImage: "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                        .fixedSize()
                 }
-                .buttonStyle(.borderless)
-                .disabled(viewModel.outputText.isEmpty)
-                .help("Copy English result")
+
+                HStack(spacing: 6) {
+                    Button {
+                        viewModel.generateNow()
+                    } label: {
+                        Label("Generate", systemImage: "arrow.right.circle")
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .disabled(
+                        viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            || viewModel.isLoading
+                    )
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help("Generate English result (Command-Return)")
+
+                    Button {
+                        copyOutput()
+                    } label: {
+                        Image(systemName: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(viewModel.outputText.isEmpty)
+                    .help("Copy English result")
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
 
             Divider()
 
-            ScrollView {
-                Text(outputDisplayText)
+            if let errorMessage = viewModel.errorMessage {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+
+                    Text(errorMessage)
+                        .font(.caption)
+                        .lineLimit(2)
+
+                    Spacer()
+
+                    Button("Retry") {
+                        viewModel.retryNow()
+                    }
+                    .controlSize(.small)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+
+                Divider()
+            }
+
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $viewModel.outputText)
                     .font(.system(size: 14))
-                    .foregroundStyle(outputForegroundStyle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .padding(12)
+                    .scrollContentBackground(.hidden)
+                    .padding(2)
+
+                if viewModel.outputText.isEmpty {
+                    Text("Your English version will appear here")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, placeholderTopPadding)
+                        .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
+                        .allowsHitTesting(false)
+                }
             }
         }
         .background(Color(nsColor: .textBackgroundColor))
@@ -260,25 +352,6 @@ struct MainPanelView: View {
         }
     }
 
-    private var outputDisplayText: String {
-        if let errorMessage = viewModel.errorMessage {
-            return errorMessage
-        }
-
-        if viewModel.outputText.isEmpty {
-            return "Your English version will appear here"
-        }
-
-        return viewModel.outputText
-    }
-
-    private var outputForegroundStyle: Color {
-        if viewModel.errorMessage != nil || viewModel.outputText.isEmpty {
-            return .secondary
-        }
-
-        return .primary
-    }
 }
 
 private struct SourceDraftChip: View {
@@ -311,7 +384,6 @@ private struct SourceDraftChip: View {
 
 struct MainPanelTitlebarControlsView: View {
     @ObservedObject var viewModel: TranslationViewModel
-    @State private var isResetTooltipVisible = false
 
     var resetMainWindow: () -> Void
     var openSettings: () -> Void
@@ -332,20 +404,6 @@ struct MainPanelTitlebarControlsView: View {
             .frame(width: 22, height: 22)
             .contentShape(Rectangle())
             .help("Reset window position and size")
-            .onHover { isHovering in
-                withAnimation(.easeOut(duration: 0.08)) {
-                    isResetTooltipVisible = isHovering
-                }
-            }
-            .overlay(alignment: .bottom) {
-                if isResetTooltipVisible {
-                    TooltipBubble(text: "Reset window position and size")
-                        .offset(y: 30)
-                        .transition(.opacity)
-                        .allowsHitTesting(false)
-                }
-            }
-            .zIndex(1)
 
             Button {
                 openSettings()
@@ -358,27 +416,6 @@ struct MainPanelTitlebarControlsView: View {
             .help("Settings")
         }
         .padding(.trailing, 8)
-    }
-}
-
-private struct TooltipBubble: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .foregroundStyle(Color(nsColor: .textColor))
-            .lineLimit(1)
-            .fixedSize()
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(Color(nsColor: .controlBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 5))
-            .overlay(
-                RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color(nsColor: .separatorColor).opacity(0.6))
-            )
-            .shadow(color: .black.opacity(0.18), radius: 4, x: 0, y: 2)
     }
 }
 

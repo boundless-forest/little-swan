@@ -8,8 +8,10 @@ The first version supports DeepSeek as a bring-your-own-key writing engine and d
 
 - Menu bar app with a compact Dock-aware floating writing panel.
 - Any-language input with English-only output.
-- Debounced real-time translation and rewriting.
+- Switchable real-time or manual translation with Command-Return generation.
 - Style menu: Natural, Polite, Casual, Professional, Concise.
+- Editable English output.
+- Reviewable input-polish changes with explicit accept and reject actions.
 - One-click copy for the selected English result with inline feedback.
 - Provider-ready settings page with configurable default writing style.
 - Resizable main panel that remembers the user's preferred size.

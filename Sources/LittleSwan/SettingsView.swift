@@ -186,6 +186,11 @@ struct SettingsView: View {
     private var translationGroup: some View {
         GroupBox("Translation") {
             VStack(alignment: .leading, spacing: 12) {
+                settingsRow("Realtime") {
+                    Toggle("Translate automatically while typing", isOn: $draft.realtimeTranslationEnabled)
+                        .toggleStyle(.switch)
+                }
+
                 settingsRow("Realtime delay") {
                     // Debounces rapid edits: translation starts after typing stays unchanged for this delay.
                     VStack(alignment: .leading, spacing: 5) {
@@ -202,6 +207,7 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .help("Translation starts after typing stays unchanged for this delay.")
+                    .disabled(!draft.realtimeTranslationEnabled)
                 }
 
                 settingsRow("Default style") {
@@ -411,6 +417,7 @@ struct SettingsView: View {
     private var hasUnsavedChanges: Bool {
         draft.provider != configStore.configuration.provider
             || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
+            || draft.realtimeTranslationEnabled != configStore.configuration.realtimeTranslationEnabled
             || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
             || draft.toggleShortcut != configStore.configuration.toggleShortcut
             || draft.commonPhrases != configStore.configuration.commonPhrases
@@ -477,6 +484,7 @@ struct SettingsView: View {
         AppConfiguration(
             provider: .deepSeekDefault,
             debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
+            realtimeTranslationEnabled: true,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,

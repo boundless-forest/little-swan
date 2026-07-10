@@ -97,6 +97,42 @@ public enum PolishedInputAnimation {
         return frames.removingConsecutiveDuplicates()
     }
 
+    public static func reviewFrame(original: String, polished: String) -> Frame? {
+        guard original != polished else { return nil }
+
+        let originalCharacters = Array(original)
+        let polishedCharacters = Array(polished)
+        var sharedPrefixCount = commonPrefixCount(originalCharacters, polishedCharacters)
+        var sharedSuffixCount = commonSuffixCount(
+            originalCharacters,
+            polishedCharacters,
+            excludingPrefixCount: sharedPrefixCount
+        )
+        expandChangeRangeToWordBoundaries(
+            originalCharacters: originalCharacters,
+            polishedCharacters: polishedCharacters,
+            prefixCount: &sharedPrefixCount,
+            suffixCount: &sharedSuffixCount
+        )
+
+        let originalMiddleEnd = originalCharacters.count - sharedSuffixCount
+        let polishedMiddleEnd = polishedCharacters.count - sharedSuffixCount
+        let suffix = sharedSuffixCount > 0 ? String(polishedCharacters.suffix(sharedSuffixCount)) : ""
+
+        return Frame(segments: [
+            Segment(text: String(originalCharacters.prefix(sharedPrefixCount)), kind: .unchanged),
+            Segment(
+                text: String(originalCharacters[sharedPrefixCount..<originalMiddleEnd]),
+                kind: .removed
+            ),
+            Segment(
+                text: String(polishedCharacters[sharedPrefixCount..<polishedMiddleEnd]),
+                kind: .added
+            ),
+            Segment(text: suffix, kind: .unchanged)
+        ])
+    }
+
     private static func commonPrefixCount(_ left: [Character], _ right: [Character]) -> Int {
         let limit = min(left.count, right.count)
         var count = 0

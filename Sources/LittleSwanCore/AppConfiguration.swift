@@ -3,6 +3,7 @@ import Foundation
 public struct AppConfiguration: Codable, Equatable, Sendable {
     public var provider: ProviderConfiguration
     public var debounceMilliseconds: Int
+    public var realtimeTranslationEnabled: Bool
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var toggleShortcut: KeyboardShortcutConfiguration
@@ -11,6 +12,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
+        realtimeTranslationEnabled: Bool = true,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
@@ -18,6 +20,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     ) {
         self.provider = provider
         self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
+        self.realtimeTranslationEnabled = realtimeTranslationEnabled
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
@@ -29,6 +32,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case provider
         case debounceMilliseconds
+        case realtimeTranslationEnabled
         case defaultWritingStyle
         case panelContentSize
         case toggleShortcut
@@ -48,6 +52,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         debounceMilliseconds = TranslationTiming.migratedDebounceMilliseconds(
             try container.decodeIfPresent(Int.self, forKey: .debounceMilliseconds)
         )
+        realtimeTranslationEnabled = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .realtimeTranslationEnabled
+        ) ?? true
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
         toggleShortcut = try container.decodeIfPresent(
             KeyboardShortcutConfiguration.self,
