@@ -250,6 +250,31 @@ func testProviderConfigurationRoundTripPreservesOpenRouterCustomization() throws
     precondition(decoded.provider == .openRouter)
 }
 
+func testAppConfigurationPersistsIndependentProviderProfilesAndAPIKeys() throws {
+    var configuration = AppConfiguration()
+    var deepSeek = configuration.provider
+    deepSeek.apiKey = "deepseek-key"
+    deepSeek.model = "deepseek-reasoner"
+    configuration.updateSelectedProvider(deepSeek)
+
+    configuration.selectProvider(.openAI)
+    var openAI = configuration.provider
+    openAI.apiKey = "openai-key"
+    openAI.model = "gpt-4.1-mini"
+    configuration.updateSelectedProvider(openAI)
+
+    configuration.selectProvider(.deepSeek)
+    precondition(configuration.provider.apiKey == "deepseek-key")
+    precondition(configuration.provider.model == "deepseek-reasoner")
+    precondition(configuration.configuration(for: .openAI).apiKey == "openai-key")
+    precondition(configuration.configuration(for: .openAI).model == "gpt-4.1-mini")
+
+    let data = try JSONEncoder().encode(configuration)
+    let decoded = try JSONDecoder().decode(AppConfiguration.self, from: data)
+    precondition(decoded.configuration(for: .deepSeek).apiKey == "deepseek-key")
+    precondition(decoded.configuration(for: .openAI).apiKey == "openai-key")
+}
+
 func testChatCompletionsClientBuildsRequestsForEveryProvider() async throws {
     let client = ChatCompletionsClient(session: makeMockSession())
 
@@ -295,6 +320,7 @@ func testChatCompletionsClientBuildsRequestsForEveryProvider() async throws {
             configuration: configuration
         )
         precondition(result == "Natural English output.")
+        try await client.testConnection(configuration: configuration)
     }
 }
 
@@ -605,7 +631,7 @@ func testPanelPresentationClampsContentSize() {
 
 func testPanelPresentationConvertsLegacyPercentageWidth() {
     precondition(PanelPresentation.width(percentage: 60, availableWidth: 1_000) == 586)
-    precondition(PanelPresentation.height(percentage: 12, availableHeight: 800) == 120)
+    precondition(PanelPresentation.height(percentage: 12, availableHeight: 800) == PanelPresentation.minimumContentHeight)
     precondition(PanelPresentation.contentSize(widthPercentage: 60).height == PanelPresentation.defaultContentSize.height)
 }
 
@@ -643,6 +669,36 @@ func testConfigurationMigratesLegacyWideDefaultPanelContentSize() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyDefaultJSON)
 
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
+}
+
+func testConfigurationMigratesLegacyShallowDefaultPanelContentSize() throws {
+    let legacyDefaultJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "panelContentSize": {
+        "width": 850,
+        "height": 120
+      }
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyDefaultJSON)
+    precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
+}
+
+func testConfigurationMigratesInterimTallDefaultPanelContentSize() throws {
+    let interimConfiguration = AppConfiguration(
+        panelContentSize: PanelPresentation.interimTallDefaultContentSize
+    )
+    let data = try JSONEncoder().encode(interimConfiguration)
+    let decoded = try JSONDecoder().decode(AppConfiguration.self, from: data)
+
+    precondition(decoded.panelContentSize == PanelPresentation.defaultContentSize)
 }
 
 func testConfigurationClampsPersistedPanelContentSize() throws {
@@ -720,12 +776,12 @@ func testConfigurationInitializerClampsPanelContentSize() {
     precondition(configuration.panelContentSize.height == PanelPresentation.minimumContentHeight)
 }
 
-func testSourceDraftCollectionStartsWithThreeEmptyDrafts() {
+func testSourceDraftCollectionStartsWithFiveNumberedDrafts() {
     let collection = SourceDraftCollection.default
 
     precondition(collection.version == 1)
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
-    precondition(collection.drafts.count == 3)
+    precondition(collection.drafts.count == SourceDraftCollection.draftCount)
+    precondition(collection.drafts.count == 5)
     precondition(collection.selectedDraftID == collection.drafts[0].id)
     precondition(collection.selectedDraft?.text == "")
     precondition(collection.drafts.enumerated().allSatisfy { index, draft in
@@ -739,78 +795,36 @@ func testSourceDraftCollectionUpdatesSelectedDraftText() {
 
     collection.updateSelectedDraftText("Please rewrite this message")
 
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.drafts.count == SourceDraftCollection.draftCount)
     precondition(collection.selectedDraftID == selectedID)
     let selectedDraft = collection.selectedDraft!
     precondition(selectedDraft.text == "Please rewrite this message")
     precondition(selectedDraft.updatedAt >= selectedDraft.createdAt)
 }
 
-func testSourceDraftCollectionCreateDraftIsStrictlyLimitedToThree() {
-    var collection = SourceDraftCollection.default
-    let originalIDs = collection.drafts.map(\.id)
-
-    let returnedDraft = collection.createDraft(text: "Should not create a fourth draft")
-
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
-    precondition(collection.drafts.map(\.id) == originalIDs)
-    precondition(returnedDraft.id == collection.selectedDraftID)
-    precondition(collection.selectedDraft?.text == "")
-}
-
-func testSourceDraftCollectionNormalizesPersistedDraftsToExactlyThree() {
+func testSourceDraftCollectionNormalizesPersistedCollectionsToFive() {
     let selected = SourceDraft(text: "Selected")
-    let extraDrafts = [
-        SourceDraft(text: "First"),
-        selected,
-        SourceDraft(text: "Third"),
-        SourceDraft(text: "Fourth")
-    ]
+    var extraDrafts = [selected]
+    extraDrafts.append(contentsOf: (1...SourceDraftCollection.draftCount).map {
+        SourceDraft(text: "Draft \($0)")
+    })
 
     let collection = SourceDraftCollection(selectedDraftID: selected.id, drafts: extraDrafts)
 
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.drafts.count == SourceDraftCollection.draftCount)
     precondition(collection.selectedDraftID == selected.id)
     precondition(collection.selectedDraft?.text == "Selected")
-    precondition(collection.drafts.map(\.text) == ["First", "Selected", "Third"])
 }
 
-func testSourceDraftCollectionPadsPersistedDraftsToExactlyThree() {
+func testSourceDraftCollectionPadsSinglePersistedDraftToFive() {
     let draft = SourceDraft(text: "Only saved draft")
 
     let collection = SourceDraftCollection(selectedDraftID: draft.id, drafts: [draft])
 
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(collection.drafts.count == SourceDraftCollection.draftCount)
     precondition(collection.selectedDraftID == draft.id)
     precondition(collection.drafts[0].text == "Only saved draft")
-    precondition(collection.drafts[1].text == "")
-    precondition(collection.drafts[2].text == "")
-}
-
-func testSourceDraftCollectionKeepsThreeDraftsWhenDeleting() {
-    var collection = SourceDraftCollection.default
-    let deletedID = collection.selectedDraftID
-
-    collection.deleteDraft(id: deletedID)
-
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
-    precondition(collection.selectedDraftID != deletedID)
-    precondition(!collection.drafts.contains { $0.id == deletedID })
-}
-
-func testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft() {
-    let first = SourceDraft(text: "First")
-    let second = SourceDraft(text: "Second")
-    let third = SourceDraft(text: "Third")
-    var collection = SourceDraftCollection(selectedDraftID: third.id, drafts: [first, second, third])
-
-    collection.deleteDraft(id: collection.selectedDraftID)
-
-    precondition(collection.drafts.count == SourceDraftCollection.maximumDraftCount)
-    precondition(collection.selectedDraftID == second.id)
-    precondition(collection.selectedDraft?.text == "Second")
-    precondition(collection.drafts.contains { $0.id == first.id })
-    precondition(!collection.drafts.contains { $0.id == third.id })
+    precondition(collection.drafts.dropFirst().allSatisfy { $0.text.isEmpty })
 }
 
 func testSourceDraftCollectionLabelsStayNumbered() {
@@ -861,8 +875,9 @@ func testSourceDraftCollectionDecodingNormalizesLegacyDraftCount() throws {
     decoder.dateDecodingStrategy = .iso8601
     let decoded = try decoder.decode(SourceDraftCollection.self, from: oneDraftJSON)
 
-    precondition(decoded.drafts.count == SourceDraftCollection.maximumDraftCount)
-    precondition(decoded.drafts.map(\.text) == ["Legacy one draft", "Legacy extra draft", "Legacy third draft"])
+    precondition(decoded.drafts.count == SourceDraftCollection.draftCount)
+    precondition(decoded.drafts.prefix(4).map(\.text) == ["Legacy one draft", "Legacy extra draft", "Legacy third draft", "Legacy fourth draft"])
+    precondition(decoded.drafts[4].text.isEmpty)
 }
 
 func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
@@ -876,7 +891,7 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 
     precondition(decoded.selectedDraftID == second.id)
     precondition(decoded.selectedDraft?.text == "Second")
-    precondition(decoded.drafts.count == SourceDraftCollection.maximumDraftCount)
+    precondition(decoded.drafts.count == SourceDraftCollection.draftCount)
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
@@ -893,6 +908,7 @@ testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay()
 try testConfigurationMigratesDeepSeekProAndLegacyDelayForSpeed()
 testProviderPresetsUseSupportedOpenAICompatibleEndpoints()
 try testProviderConfigurationRoundTripPreservesOpenRouterCustomization()
+try testAppConfigurationPersistsIndependentProviderProfilesAndAPIKeys()
 try await testChatCompletionsClientBuildsRequestsForEveryProvider()
 try await testChatCompletionsClientReportsProviderSpecificFailures()
 try testConfigurationClampsSlowPersistedRealtimeDelay()
@@ -915,17 +931,16 @@ testPanelPresentationClampsContentSize()
 testPanelPresentationConvertsLegacyPercentageWidth()
 testPanelPresentationComputesResponsiveDefaultContentSize()
 try testConfigurationMigratesLegacyWideDefaultPanelContentSize()
+try testConfigurationMigratesLegacyShallowDefaultPanelContentSize()
+try testConfigurationMigratesInterimTallDefaultPanelContentSize()
 try testConfigurationClampsPersistedPanelContentSize()
 try testConfigurationDecodesLegacyPanelWidthAsContentSize()
 try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()
 testConfigurationInitializerClampsPanelContentSize()
-testSourceDraftCollectionStartsWithThreeEmptyDrafts()
+testSourceDraftCollectionStartsWithFiveNumberedDrafts()
 testSourceDraftCollectionUpdatesSelectedDraftText()
-testSourceDraftCollectionCreateDraftIsStrictlyLimitedToThree()
-testSourceDraftCollectionNormalizesPersistedDraftsToExactlyThree()
-testSourceDraftCollectionPadsPersistedDraftsToExactlyThree()
-testSourceDraftCollectionKeepsThreeDraftsWhenDeleting()
-testSourceDraftCollectionSelectsNeighborWhenDeletingSelectedDraft()
+testSourceDraftCollectionNormalizesPersistedCollectionsToFive()
+testSourceDraftCollectionPadsSinglePersistedDraftToFive()
 testSourceDraftCollectionLabelsStayNumbered()
 try testSourceDraftCollectionDecodingNormalizesLegacyDraftCount()
 try testSourceDraftCollectionCodableRoundTripPreservesSelection()

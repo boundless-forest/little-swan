@@ -42,11 +42,6 @@ final class SourceDraftStore: ObservableObject {
         saveDebounced()
     }
 
-    func deleteDraft(id: UUID) {
-        collection.deleteDraft(id: id)
-        saveDebounced()
-    }
-
     func save() {
         saveTask?.cancel()
 

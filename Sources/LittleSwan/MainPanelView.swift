@@ -27,27 +27,29 @@ struct MainPanelView: View {
             }
     }
 
-    @ViewBuilder
     private var contentColumns: some View {
         HStack(spacing: 10) {
             inputEditor
+                .frame(minWidth: 0, maxWidth: .infinity)
             outputView
+                .frame(minWidth: 0, maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var inputEditor: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: 7) {
                 Text("Source")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.caption.weight(.bold))
+                    .fixedSize()
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 5) {
                         ForEach(Array(viewModel.sourceDrafts.enumerated()), id: \.element.id) { index, draft in
+                            let title = viewModel.sourceDraftLabel(for: draft, fallbackIndex: index)
                             SourceDraftChip(
-                                title: viewModel.sourceDraftLabel(for: draft, fallbackIndex: index),
+                                title: title,
                                 isSelected: draft.id == viewModel.selectedSourceDraftID
                             ) {
                                 viewModel.selectSourceDraft(draft.id)
@@ -57,21 +59,8 @@ struct MainPanelView: View {
                     }
                     .padding(.vertical, 1)
                 }
-                .frame(maxWidth: 220)
-
-                Spacer(minLength: 4)
-
-                Toggle(
-                    "Realtime",
-                    isOn: Binding(
-                        get: { viewModel.isRealtimeTranslationEnabled },
-                        set: { viewModel.setRealtimeTranslationEnabled($0) }
-                    )
-                )
-                .toggleStyle(.switch)
-                .controlSize(.mini)
-                .fixedSize()
-                .help("Translate automatically while typing")
+                .frame(minWidth: 60, maxHeight: 28)
+                .layoutPriority(1)
 
                 commonPhrasesMenu
 
@@ -83,10 +72,12 @@ struct MainPanelView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else {
-                        Image(systemName: "wand.and.stars")
+                        Label("Polish", systemImage: "wand.and.stars")
                     }
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
+                .controlSize(.small)
                 .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPolishingInput)
                 .help("Polish input text")
 
@@ -94,14 +85,30 @@ struct MainPanelView: View {
                     viewModel.clearInput()
                     isInputFocused = true
                 } label: {
-                    Image(systemName: "xmark.circle")
+                    Label("Clear source", systemImage: "xmark.circle")
                 }
+                .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
                 .disabled(viewModel.inputText.isEmpty)
                 .help("Clear current draft")
+
+                Toggle(
+                    "Auto",
+                    isOn: Binding(
+                        get: { viewModel.isRealtimeTranslationEnabled },
+                        set: { viewModel.setRealtimeTranslationEnabled($0) }
+                    )
+                )
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .fixedSize()
+                .help("Translate automatically while typing")
+                .accessibilityLabel("Auto translate")
+                .accessibilityHint("Automatically refreshes the English result after you stop typing")
             }
+            .frame(height: 34)
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
 
             Divider()
 
@@ -200,9 +207,11 @@ struct MainPanelView: View {
         Button {
             isCommonPhrasePickerPresented.toggle()
         } label: {
-            Image(systemName: "text.badge.plus")
+            Label("Phrases", systemImage: "text.badge.plus")
         }
+        .labelStyle(.iconOnly)
         .buttonStyle(.borderless)
+        .controlSize(.small)
         .disabled(viewModel.commonPhrases.isEmpty)
         .help(
             viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase"
@@ -219,36 +228,40 @@ struct MainPanelView: View {
     private var outputView: some View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
-                Text("English")
-                    .font(.caption.weight(.semibold))
+                Text("English result")
+                    .font(.caption.weight(.bold))
+
+                Text("Editable")
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.secondary.opacity(0.1), in: Capsule())
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 5) {
-                        ForEach(WritingStyle.allCases) { style in
-                            SourceDraftChip(
-                                title: style.label,
-                                isSelected: style == viewModel.selectedStyle
-                            ) {
-                                viewModel.selectedStyle = style
-                            }
-                        }
+                Picker("Writing style", selection: $viewModel.selectedStyle) {
+                    ForEach(WritingStyle.allCases) { style in
+                        Text(style.label).tag(style)
                     }
-                    .padding(.vertical, 1)
                 }
-                .frame(maxWidth: 360)
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .labelsHidden()
+                .frame(minWidth: 180, maxWidth: 360)
+                .layoutPriority(1)
+                .accessibilityLabel("Writing style")
+                .accessibilityValue(viewModel.selectedStyle.label)
 
-                Spacer(minLength: 4)
+                Spacer(minLength: 0)
 
-                if viewModel.isLoading {
-                    Label("Generating…", systemImage: "sparkles")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize()
-                } else if isCopyFeedbackVisible {
+                if isCopyFeedbackVisible {
                     Label("Copied", systemImage: "checkmark.circle.fill")
                         .font(.caption)
                         .foregroundStyle(.green)
+                        .fixedSize()
+                } else if viewModel.isOutputStale {
+                    Label("Out of date", systemImage: "clock.arrow.circlepath")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.orange)
                         .fixedSize()
                 }
 
@@ -256,10 +269,18 @@ struct MainPanelView: View {
                     Button {
                         viewModel.generateNow()
                     } label: {
-                        Label("Generate", systemImage: "arrow.right.circle")
+                        if viewModel.isLoading {
+                            HStack(spacing: 5) {
+                                ProgressView()
+                                    .controlSize(.small)
+                                Text("Generating…")
+                            }
+                        } else {
+                            Label(viewModel.isOutputStale ? "Update" : "Generate", systemImage: "sparkles")
+                        }
                     }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                     .disabled(
                         viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             || viewModel.isLoading
@@ -270,15 +291,20 @@ struct MainPanelView: View {
                     Button {
                         copyOutput()
                     } label: {
-                        Image(systemName: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc")
+                        Label(
+                            isCopyFeedbackVisible ? "Copied" : "Copy",
+                            systemImage: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc"
+                        )
                     }
+                    .labelStyle(.iconOnly)
                     .buttonStyle(.borderless)
                     .disabled(viewModel.outputText.isEmpty)
                     .help("Copy English result")
                 }
             }
+            .frame(height: 34)
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
 
             Divider()
 
@@ -433,24 +459,33 @@ private struct SourceDraftChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.caption2.weight(isSelected ? .semibold : .regular))
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .padding(.horizontal, 7)
-                .padding(.vertical, 3)
-                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+            HStack(spacing: 4) {
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.caption2.weight(.bold))
+                }
+                Text(title)
+                    .font(.caption.weight(isSelected ? .semibold : .regular))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
                 .background(
                     Capsule()
-                        .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08))
+                        .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.07))
                 )
                 .overlay(
                     Capsule()
-                        .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.clear)
+                        .stroke(isSelected ? Color.accentColor.opacity(0.75) : Color.secondary.opacity(0.2))
                 )
         }
         .buttonStyle(.plain)
         .help(title)
+        .accessibilityLabel(title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -462,11 +497,6 @@ struct MainPanelTitlebarControlsView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            if viewModel.isLoading {
-                ProgressView()
-                    .controlSize(.small)
-            }
-
             Button {
                 resetMainWindow()
             } label: {

@@ -9,8 +9,15 @@ struct SettingsView: View {
     @State private var isAPIKeyVisible = false
     @State private var selectedTab: SettingsTab = .provider
     @State private var saveFeedbackTask: Task<Void, Never>?
+    @State private var autoSaveTask: Task<Void, Never>?
+    @State private var connectionTestTask: Task<Void, Never>?
+    @State private var connectionStatus: ConnectionStatus = .idle
+    @State private var isRestoreConfirmationPresented = false
+    @State private var isPhraseRestoreConfirmationPresented = false
+    @State private var isCustomDelayVisible = false
     @State private var selectedCommonPhraseIndex = 0
     @FocusState private var isCommonPhraseEditorFocused: Bool
+    @FocusState private var focusedSettingsTab: SettingsTab?
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -18,13 +25,10 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Settings")
-                .font(.title2.weight(.semibold))
-
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 0) {
                 tabRail
-                    .frame(width: 172)
+                    .frame(width: 190)
 
                 Divider()
                     .padding(.horizontal, 14)
@@ -44,42 +48,56 @@ struct SettingsView: View {
                         .foregroundStyle(.red)
                         .lineLimit(1)
                 } else if didSave {
-                    Text("Settings saved")
+                    Label("Saved", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer()
 
-                Button("Reset") {
-                    draft = defaultEditableConfiguration
-                    clearSaveFeedback()
+                Button("Restore all defaults…") {
+                    isRestoreConfirmationPresented = true
                 }
-
-                Button("Save") {
-                    saveDraft()
-                }
-                .disabled(!hasUnsavedChanges || !draft.toggleShortcut.isValid)
-                .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(22)
-        .frame(width: 760, height: 510)
+        .padding(20)
+        .frame(minWidth: 760, minHeight: 500)
         .onChange(of: draft) { _, _ in
-            clearSaveFeedback()
+            connectionTestTask?.cancel()
+            connectionStatus = .idle
+            scheduleAutoSave()
+        }
+        .onChange(of: selectedTab) { _, newTab in
+            focusedSettingsTab = newTab
         }
         .onDisappear {
             saveFeedbackTask?.cancel()
+            autoSaveTask?.cancel()
+            connectionTestTask?.cancel()
+        }
+        .confirmationDialog(
+            "Restore all settings to their defaults?",
+            isPresented: $isRestoreConfirmationPresented
+        ) {
+            Button("Restore All Defaults", role: .destructive) {
+                draft = defaultEditableConfiguration
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Provider settings, common phrases, translation preferences, and the keyboard shortcut will be reset.")
+        }
+        .confirmationDialog(
+            "Restore the default common phrases?",
+            isPresented: $isPhraseRestoreConfirmationPresented
+        ) {
+            Button("Restore Phrase Defaults", role: .destructive) {
+                draft.commonPhrases = .default
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 
     private var tabRail: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Categories")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: 24)
-
             ForEach(SettingsTab.allCases) { tab in
                 tabButton(tab)
             }
@@ -90,6 +108,7 @@ struct SettingsView: View {
 
     private func tabButton(_ tab: SettingsTab) -> some View {
         Button {
+            focusedSettingsTab = tab
             selectedTab = tab
         } label: {
             HStack(spacing: 9) {
@@ -112,8 +131,11 @@ struct SettingsView: View {
             )
         }
         .buttonStyle(.plain)
-        .focusable(false)
+        .focused($focusedSettingsTab, equals: tab)
         .help(tab.label)
+        .accessibilityLabel(tab.label)
+        .accessibilityValue(selectedTab == tab ? "Selected" : "Not selected")
+        .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -144,8 +166,17 @@ struct SettingsView: View {
                 }
 
                 settingsRow("Base URL") {
-                    TextField("Base URL", text: $draft.provider.baseURL)
-                        .textFieldStyle(.roundedBorder)
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Base URL", text: $draft.provider.baseURL)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityHint("The OpenAI-compatible API endpoint for this provider")
+
+                        if !draft.provider.baseURL.isEmpty, !isProviderBaseURLValid {
+                            Label("Enter a valid HTTP or HTTPS URL.", systemImage: "exclamationmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
+                    }
                 }
 
                 settingsRow("API key") {
@@ -174,25 +205,48 @@ struct SettingsView: View {
                 }
 
                 settingsRow("Model") {
-                    HStack(spacing: 8) {
-                        TextField("Model identifier", text: $draft.provider.model)
-                            .textFieldStyle(.roundedBorder)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            TextField("Model identifier", text: $draft.provider.model)
+                                .textFieldStyle(.roundedBorder)
 
-                        Menu {
-                            ForEach(draft.provider.provider.suggestedModels, id: \.self) { model in
-                                Button(model) {
-                                    draft.provider.model = model
+                            Menu {
+                                ForEach(draft.provider.provider.suggestedModels, id: \.self) { model in
+                                    Button(model) {
+                                        draft.provider.model = model
+                                    }
                                 }
+                            } label: {
+                                Label("Suggested", systemImage: "chevron.down")
                             }
-                        } label: {
-                            Label("Suggested models", systemImage: "chevron.down")
+                            .help("Choose a suggested model")
                         }
-                        .labelStyle(.iconOnly)
-                        .help("Choose a suggested model")
+
+                        if draft.provider.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Label("Enter a model identifier.", systemImage: "exclamationmark.circle")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        }
                     }
                 }
 
-                Text(providerHelpText)
+                HStack(alignment: .center, spacing: 10) {
+                    Button {
+                        testProviderConnection()
+                    } label: {
+                        if connectionStatus == .testing {
+                            ProgressView()
+                                .controlSize(.small)
+                        } else {
+                            Label("Test connection", systemImage: "bolt.horizontal.circle")
+                        }
+                    }
+                    .disabled(!canTestProviderConnection || connectionStatus == .testing)
+
+                    connectionStatusView
+                }
+
+                Text(providerHelpText + " API keys are stored in Little Swan's local configuration file.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -210,16 +264,25 @@ struct SettingsView: View {
                 }
 
                 settingsRow("Realtime delay") {
-                    // Debounces rapid edits: translation starts after typing stays unchanged for this delay.
-                    VStack(alignment: .leading, spacing: 5) {
-                        Stepper(
-                            "\(draft.debounceMilliseconds) ms",
-                            value: $draft.debounceMilliseconds,
-                            in: TranslationTiming.minimumRealtimeDelayMilliseconds...TranslationTiming.maximumRealtimeDelayMilliseconds,
-                            step: 50
-                        )
+                    VStack(alignment: .leading, spacing: 7) {
+                        Picker("Response speed", selection: realtimeDelayPresetBinding) {
+                            ForEach(RealtimeDelayPreset.allCases) { preset in
+                                Text(preset.label).tag(preset)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
 
-                        Text("Translation starts after typing stays unchanged for this delay. Higher values reduce repeated requests; lower values feel more immediate.")
+                        if isCustomDelayVisible || RealtimeDelayPreset(milliseconds: draft.debounceMilliseconds) == .custom {
+                            Stepper(
+                                "Custom: \(draft.debounceMilliseconds) ms",
+                                value: $draft.debounceMilliseconds,
+                                in: TranslationTiming.minimumRealtimeDelayMilliseconds...TranslationTiming.maximumRealtimeDelayMilliseconds,
+                                step: 50
+                            )
+                        }
+
+                        Text(realtimeDelayHelpText)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -339,8 +402,8 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    Button("Restore defaults") {
-                        draft.commonPhrases = .default
+                    Button("Restore phrase defaults…") {
+                        isPhraseRestoreConfirmationPresented = true
                     }
                 }
             }
@@ -354,8 +417,16 @@ struct SettingsView: View {
                 selectedCommonPhraseIndex = index
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(commonPhrasePreview(for: index))
-                        .font(.system(size: 12))
+                    HStack(spacing: 5) {
+                        if index == selectedValidCommonPhraseIndex {
+                            Image(systemName: "checkmark")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Color.accentColor)
+                        }
+
+                        Text(commonPhrasePreview(for: index))
+                            .font(.system(size: 13))
+                    }
                         .lineLimit(2)
                         .foregroundStyle(.primary)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -378,6 +449,9 @@ struct SettingsView: View {
             }
             .buttonStyle(.plain)
             .help("Select phrase \(index + 1) to edit")
+            .accessibilityLabel("Phrase \(index + 1): \(commonPhrasePreview(for: index))")
+            .accessibilityValue(index == selectedValidCommonPhraseIndex ? "Selected" : "Not selected")
+            .accessibilityAddTraits(index == selectedValidCommonPhraseIndex ? .isSelected : [])
 
         }
     }
@@ -437,10 +511,41 @@ struct SettingsView: View {
             get: { draft.provider.provider },
             set: { provider in
                 guard provider != draft.provider.provider else { return }
-                draft.provider = provider.defaultConfiguration
+                draft.updateSelectedProvider(draft.provider)
+                draft.selectProvider(provider)
                 isAPIKeyVisible = false
             }
         )
+    }
+
+    private var isProviderBaseURLValid: Bool {
+        let value = draft.provider.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let components = URLComponents(string: value) else { return false }
+        return ["http", "https"].contains(components.scheme?.lowercased() ?? "")
+            && components.host != nil
+    }
+
+    private var canTestProviderConnection: Bool {
+        isProviderBaseURLValid
+            && !draft.provider.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !draft.provider.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    @ViewBuilder
+    private var connectionStatusView: some View {
+        switch connectionStatus {
+        case .idle, .testing:
+            EmptyView()
+        case .connected:
+            Label("Connected", systemImage: "checkmark.circle.fill")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.green)
+        case .failed(let message):
+            Label(message, systemImage: "xmark.circle.fill")
+                .font(.caption)
+                .foregroundStyle(.red)
+                .lineLimit(2)
+        }
     }
 
     private var providerHelpText: String {
@@ -454,13 +559,31 @@ struct SettingsView: View {
         }
     }
 
-    private var hasUnsavedChanges: Bool {
-        draft.provider != configStore.configuration.provider
-            || draft.debounceMilliseconds != configStore.configuration.debounceMilliseconds
-            || draft.realtimeTranslationEnabled != configStore.configuration.realtimeTranslationEnabled
-            || draft.defaultWritingStyle != configStore.configuration.defaultWritingStyle
-            || draft.toggleShortcut != configStore.configuration.toggleShortcut
-            || draft.commonPhrases != configStore.configuration.commonPhrases
+    private var realtimeDelayPresetBinding: Binding<RealtimeDelayPreset> {
+        Binding(
+            get: { RealtimeDelayPreset(milliseconds: draft.debounceMilliseconds) },
+            set: { preset in
+                if let milliseconds = preset.milliseconds {
+                    draft.debounceMilliseconds = milliseconds
+                    isCustomDelayVisible = false
+                } else {
+                    isCustomDelayVisible = true
+                }
+            }
+        )
+    }
+
+    private var realtimeDelayHelpText: String {
+        switch RealtimeDelayPreset(milliseconds: draft.debounceMilliseconds) {
+        case .fast:
+            "Starts quickly after typing pauses. Best for short text, but may use more requests."
+        case .balanced:
+            "Balances responsiveness with fewer repeated requests."
+        case .fewerRequests:
+            "Waits longer after typing pauses to reduce repeated requests."
+        case .custom:
+            "Uses a custom delay after typing pauses."
+        }
     }
 
     private var commonPhraseLimitText: String {
@@ -534,21 +657,32 @@ struct SettingsView: View {
 
     private var shortcutHelpText: String {
         if draft.toggleShortcut.isValid {
-            "Press this shortcut anywhere to open or hide Little Swan. Click the field, press a new key combination, then Save."
+            "Press this shortcut anywhere to open or hide Little Swan. Click the field, then press a new key combination."
         } else {
-            "Shortcut must include at least one modifier key."
+            "Shortcut was not saved. Include at least one modifier key."
         }
     }
 
-    private func saveDraft() {
-        guard draft.toggleShortcut.isValid else { return }
+    private func scheduleAutoSave() {
+        autoSaveTask?.cancel()
+        didSave = false
+        autoSaveTask = Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            saveDraftImmediately()
+        }
+    }
 
+    private func saveDraftImmediately() {
         var nextConfiguration = draft
+        nextConfiguration.updateSelectedProvider(nextConfiguration.provider)
         nextConfiguration.panelContentSize = configStore.configuration.panelContentSize
         nextConfiguration.commonPhrases = nextConfiguration.commonPhrases.normalized()
+        if !nextConfiguration.toggleShortcut.isValid {
+            nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
+        }
         configStore.configuration = nextConfiguration
         configStore.save()
-        draft = nextConfiguration
         didSave = configStore.lastError == nil
 
         saveFeedbackTask?.cancel()
@@ -563,19 +697,74 @@ struct SettingsView: View {
         }
     }
 
-    private func clearSaveFeedback() {
-        saveFeedbackTask?.cancel()
-        didSave = false
+    private func testProviderConnection() {
+        guard canTestProviderConnection else { return }
+        connectionTestTask?.cancel()
+        connectionStatus = .testing
+        let configuration = draft.provider
+
+        connectionTestTask = Task {
+            do {
+                try await ChatCompletionsClient().testConnection(configuration: configuration)
+                guard !Task.isCancelled else { return }
+                connectionStatus = .connected
+            } catch {
+                guard !Task.isCancelled else { return }
+                connectionStatus = .failed(error.localizedDescription)
+            }
+        }
     }
 
     private func pasteAPIKey() {
         guard let pasted = NSPasteboard.general.string(forType: .string) else { return }
         draft.provider.apiKey = pasted.trimmingCharacters(in: .whitespacesAndNewlines)
-        clearSaveFeedback()
     }
 }
 
-private enum SettingsTab: String, CaseIterable, Identifiable {
+private enum ConnectionStatus: Equatable {
+    case idle
+    case testing
+    case connected
+    case failed(String)
+}
+
+private enum RealtimeDelayPreset: String, CaseIterable, Identifiable {
+    case fast
+    case balanced
+    case fewerRequests
+    case custom
+
+    var id: String { rawValue }
+
+    init(milliseconds: Int) {
+        switch milliseconds {
+        case 100: self = .fast
+        case 200: self = .balanced
+        case 600: self = .fewerRequests
+        default: self = .custom
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .fast: "Fast"
+        case .balanced: "Balanced"
+        case .fewerRequests: "Fewer requests"
+        case .custom: "Custom"
+        }
+    }
+
+    var milliseconds: Int? {
+        switch self {
+        case .fast: 100
+        case .balanced: 200
+        case .fewerRequests: 600
+        case .custom: nil
+        }
+    }
+}
+
+private enum SettingsTab: String, CaseIterable, Identifiable, Hashable {
     case provider
     case translation
     case commonPhrases

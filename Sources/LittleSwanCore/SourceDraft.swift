@@ -25,7 +25,7 @@ public struct SourceDraft: Codable, Equatable, Identifiable, Sendable {
 
 public struct SourceDraftCollection: Codable, Equatable, Sendable {
     public static let currentVersion = 1
-    public static let maximumDraftCount = 3
+    public static let draftCount = 5
 
     public var version: Int
     public var selectedDraftID: UUID
@@ -83,19 +83,6 @@ public struct SourceDraftCollection: Codable, Equatable, Sendable {
         selectedDraftID = id
     }
 
-    @discardableResult
-    public mutating func createDraft(text: String = "", now: Date = Date()) -> SourceDraft {
-        guard drafts.count < Self.maximumDraftCount else {
-            return selectedDraft ?? drafts[0]
-        }
-
-        let draft = SourceDraft(text: text, createdAt: now, updatedAt: now)
-        drafts.append(draft)
-        normalizeDrafts(now: now)
-        selectedDraftID = draft.id
-        return draft
-    }
-
     public mutating func updateSelectedDraftText(_ text: String, now: Date = Date()) {
         guard let selectedIndex = drafts.firstIndex(where: { $0.id == selectedDraftID }) else {
             let draft = SourceDraft(text: text, createdAt: now, updatedAt: now)
@@ -108,34 +95,10 @@ public struct SourceDraftCollection: Codable, Equatable, Sendable {
         drafts[selectedIndex].updatedAt = now
     }
 
-    public mutating func deleteDraft(id: UUID, now: Date = Date()) {
-        guard let deletedIndex = drafts.firstIndex(where: { $0.id == id }) else { return }
-
-        let wasSelected = selectedDraftID == id
-        drafts.remove(at: deletedIndex)
-
-        if wasSelected {
-            let neighborIndex = min(max(deletedIndex - 1, 0), max(drafts.count - 1, 0))
-            selectedDraftID = drafts.indices.contains(neighborIndex)
-                ? drafts[neighborIndex].id
-                : UUID()
-        }
-
-        normalizeDrafts(now: now)
-
-        if !drafts.contains(where: { $0.id == selectedDraftID }) {
-            selectedDraftID = drafts[0].id
-        }
-    }
-
-    private mutating func normalizeDrafts(now: Date = Date()) {
-        drafts = Self.normalizedDrafts(drafts, now: now)
-    }
-
     private static func normalizedDrafts(_ drafts: [SourceDraft], now: Date = Date()) -> [SourceDraft] {
-        var normalized = Array(drafts.prefix(maximumDraftCount))
+        var normalized = Array(drafts.prefix(draftCount))
 
-        while normalized.count < maximumDraftCount {
+        while normalized.count < draftCount {
             normalized.append(SourceDraft(createdAt: now, updatedAt: now))
         }
 

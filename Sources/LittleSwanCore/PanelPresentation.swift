@@ -21,6 +21,16 @@ public enum PanelPresentation {
         height: 300
     )
 
+    public static let legacyShallowDefaultContentSize = PanelContentSizeConfiguration(
+        width: 850,
+        height: 120
+    )
+
+    public static let interimTallDefaultContentSize = PanelContentSizeConfiguration(
+        width: 850,
+        height: 228
+    )
+
     public static func defaultContentSize(
         availableWidth: Int? = nil,
         availableHeight: Int? = nil

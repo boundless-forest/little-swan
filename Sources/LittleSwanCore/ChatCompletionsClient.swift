@@ -63,6 +63,18 @@ public final class ChatCompletionsClient: Sendable {
         )
     }
 
+    public func testConnection(configuration: ProviderConfiguration) async throws {
+        _ = try await complete(
+            messages: [
+                ChatMessage(role: "system", content: "Reply with OK."),
+                ChatMessage(role: "user", content: "Connection test")
+            ],
+            temperature: 0,
+            trimsOutput: true,
+            configuration: configuration
+        )
+    }
+
     private func complete(
         messages: [ChatMessage],
         temperature: Double,

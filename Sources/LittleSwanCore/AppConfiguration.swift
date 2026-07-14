@@ -2,6 +2,7 @@ import Foundation
 
 public struct AppConfiguration: Codable, Equatable, Sendable {
     public var provider: ProviderConfiguration
+    public var providerConfigurations: [String: ProviderConfiguration]
     public var debounceMilliseconds: Int
     public var realtimeTranslationEnabled: Bool
     public var defaultWritingStyle: WritingStyle
@@ -11,6 +12,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
 
     public init(
         provider: ProviderConfiguration = .deepSeekDefault,
+        providerConfigurations: [String: ProviderConfiguration]? = nil,
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         realtimeTranslationEnabled: Bool = true,
         defaultWritingStyle: WritingStyle = .natural,
@@ -19,6 +21,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         commonPhrases: CommonPhraseCollection = .default
     ) {
         self.provider = provider
+        self.providerConfigurations = Self.normalizedProviderConfigurations(
+            providerConfigurations,
+            selectedProvider: provider
+        )
         self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
         self.realtimeTranslationEnabled = realtimeTranslationEnabled
         self.defaultWritingStyle = defaultWritingStyle
@@ -31,6 +37,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case provider
+        case providerConfigurations
         case debounceMilliseconds
         case realtimeTranslationEnabled
         case defaultWritingStyle
@@ -48,7 +55,15 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let legacyContainer = try decoder.container(keyedBy: LegacyCodingKeys.self)
 
-        provider = try container.decode(ProviderConfiguration.self, forKey: .provider)
+        let decodedProvider = try container.decode(ProviderConfiguration.self, forKey: .provider)
+        provider = decodedProvider
+        providerConfigurations = Self.normalizedProviderConfigurations(
+            try container.decodeIfPresent(
+                [String: ProviderConfiguration].self,
+                forKey: .providerConfigurations
+            ),
+            selectedProvider: decodedProvider
+        )
         debounceMilliseconds = TranslationTiming.migratedDebounceMilliseconds(
             try container.decodeIfPresent(Int.self, forKey: .debounceMilliseconds)
         )
@@ -70,7 +85,11 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             PanelContentSizeConfiguration.self,
             forKey: .panelContentSize
         ) {
-            panelContentSize = contentSize == PanelPresentation.legacyWideDefaultContentSize
+            panelContentSize = [
+                PanelPresentation.legacyWideDefaultContentSize,
+                PanelPresentation.legacyShallowDefaultContentSize,
+                PanelPresentation.interimTallDefaultContentSize
+            ].contains(contentSize)
                 ? PanelPresentation.defaultContentSize
                 : PanelPresentation.clampedContentSize(contentSize)
         } else if let legacyWidthPercentage = try legacyContainer.decodeIfPresent(
@@ -83,6 +102,39 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         } else {
             panelContentSize = PanelPresentation.defaultContentSize
         }
+    }
+
+    public func configuration(for provider: AIProvider) -> ProviderConfiguration {
+        providerConfigurations[provider.rawValue] ?? provider.defaultConfiguration
+    }
+
+    public mutating func selectProvider(_ selectedProvider: AIProvider) {
+        providerConfigurations[provider.provider.rawValue] = provider
+        provider = configuration(for: selectedProvider)
+    }
+
+    public mutating func updateSelectedProvider(_ configuration: ProviderConfiguration) {
+        provider = configuration
+        providerConfigurations[configuration.provider.rawValue] = configuration
+    }
+
+    private static func normalizedProviderConfigurations(
+        _ configurations: [String: ProviderConfiguration]?,
+        selectedProvider: ProviderConfiguration
+    ) -> [String: ProviderConfiguration] {
+        var normalized = Dictionary(
+            uniqueKeysWithValues: AIProvider.allCases.map {
+                ($0.rawValue, $0.defaultConfiguration)
+            }
+        )
+
+        if let configurations {
+            for configuration in configurations.values {
+                normalized[configuration.provider.rawValue] = configuration
+            }
+        }
+        normalized[selectedProvider.provider.rawValue] = selectedProvider
+        return normalized
     }
 }
 

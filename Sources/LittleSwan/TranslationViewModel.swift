@@ -9,13 +9,17 @@ final class TranslationViewModel: ObservableObject {
         didSet {
             sourceDraftStore?.updateSelectedDraftText(inputText)
             cancelInputPolishIfNeededForUserEdit()
+            updateOutputFreshness()
             scheduleTranslation()
         }
     }
 
     @Published var outputText = ""
     @Published var selectedStyle: WritingStyle {
-        didSet { scheduleTranslation() }
+        didSet {
+            updateOutputFreshness()
+            scheduleTranslation()
+        }
     }
 
     @Published var isLoading = false
@@ -27,6 +31,7 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var sourceDrafts: [SourceDraft]
     @Published private(set) var selectedSourceDraftID: UUID
     @Published private(set) var commonPhrases: [String]
+    @Published private(set) var isOutputStale = false
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
@@ -35,6 +40,8 @@ final class TranslationViewModel: ObservableObject {
     private var inputPolishTask: Task<Void, Never>?
     private var inputPolishRequestID = UUID()
     private var isApplyingPolishedInput = false
+    private var lastGeneratedInput: String?
+    private var lastGeneratedStyle: WritingStyle?
     private var cancellables = Set<AnyCancellable>()
 
     init(
@@ -156,6 +163,9 @@ final class TranslationViewModel: ObservableObject {
         cancelInputPolish()
         selectedSourceDraftID = draft.id
         outputText = ""
+        lastGeneratedInput = nil
+        lastGeneratedStyle = nil
+        isOutputStale = false
         errorMessage = nil
         isLoading = false
         inputText = draft.text
@@ -201,6 +211,9 @@ final class TranslationViewModel: ObservableObject {
         let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else {
             outputText = ""
+            lastGeneratedInput = nil
+            lastGeneratedStyle = nil
+            isOutputStale = false
             errorMessage = nil
             isLoading = false
             return
@@ -261,6 +274,9 @@ final class TranslationViewModel: ObservableObject {
             guard !Task.isCancelled else { return }
 
             outputText = result
+            lastGeneratedInput = input
+            lastGeneratedStyle = style
+            isOutputStale = false
             errorMessage = nil
         } catch is CancellationError {
             return
@@ -270,6 +286,16 @@ final class TranslationViewModel: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    private func updateOutputFreshness() {
+        guard !outputText.isEmpty else {
+            isOutputStale = false
+            return
+        }
+
+        let normalizedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        isOutputStale = normalizedInput != lastGeneratedInput || selectedStyle != lastGeneratedStyle
     }
 
     private func polishInput(_ originalInput: String, requestID: UUID) async {
