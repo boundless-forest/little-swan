@@ -6,6 +6,7 @@ struct MainPanelView: View {
     @FocusState private var isInputFocused: Bool
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
+    @State private var isCommonPhrasePickerPresented = false
 
     private let placeholderTopPadding: CGFloat = 2
     private let placeholderLeadingPadding: CGFloat = 8
@@ -196,28 +197,23 @@ struct MainPanelView: View {
     }
 
     private var commonPhrasesMenu: some View {
-        Menu {
-            if viewModel.commonPhrases.isEmpty {
-                Text("No common phrases")
-            } else {
-                ForEach(viewModel.commonPhrases, id: \.self) { phrase in
-                    Button {
-                        viewModel.insertCommonPhrase(phrase)
-                        isInputFocused = true
-                    } label: {
-                        Text(CommonPhraseDisplay.menuTitle(for: phrase))
-                    }
-                }
-            }
+        Button {
+            isCommonPhrasePickerPresented.toggle()
         } label: {
             Image(systemName: "text.badge.plus")
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
+        .buttonStyle(.borderless)
         .disabled(viewModel.commonPhrases.isEmpty)
         .help(
             viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase"
         )
+        .popover(isPresented: $isCommonPhrasePickerPresented, arrowEdge: .top) {
+            CommonPhrasePicker(phrases: viewModel.commonPhrases) { phrase in
+                viewModel.insertCommonPhrase(phrase)
+                isCommonPhrasePickerPresented = false
+                isInputFocused = true
+            }
+        }
     }
 
     private var outputView: some View {
@@ -352,6 +348,82 @@ struct MainPanelView: View {
         }
     }
 
+}
+
+private struct CommonPhrasePicker: View {
+    let phrases: [String]
+    let onSelect: (String) -> Void
+
+    @State private var hoveredPhrase: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2) {
+                    ForEach(phrases, id: \.self) { phrase in
+                        phraseButton(phrase)
+                    }
+                }
+                .padding(6)
+            }
+            .frame(width: 260, height: 220)
+
+            Divider()
+
+            phrasePreview
+                .frame(width: 320, height: 220)
+        }
+    }
+
+    private func phraseButton(_ phrase: String) -> some View {
+        Button {
+            onSelect(phrase)
+        } label: {
+            Text(CommonPhraseDisplay.menuTitle(for: phrase))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(
+            RoundedRectangle(cornerRadius: 5)
+                .fill(hoveredPhrase == phrase ? Color.accentColor.opacity(0.14) : .clear)
+        )
+        .onHover { isHovering in
+            if isHovering {
+                hoveredPhrase = phrase
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var phrasePreview: some View {
+        if let hoveredPhrase {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Preview")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ScrollView {
+                    Text(verbatim: hoveredPhrase)
+                        .font(.system(size: 13))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
+            }
+            .padding(12)
+        } else {
+            ContentUnavailableView(
+                "Hover to preview",
+                systemImage: "text.bubble",
+                description: Text("Select a phrase to insert it.")
+            )
+            .controlSize(.small)
+            .padding(12)
+        }
+    }
 }
 
 private struct SourceDraftChip: View {

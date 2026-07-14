@@ -1,33 +1,33 @@
-// File overview: Calls the DeepSeek chat completions API for Little Swan text rewriting.
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking
 #endif
 
-public enum DeepSeekClientError: LocalizedError, Equatable {
-    case missingAPIKey
-    case invalidBaseURL(String)
-    case invalidResponse
+public enum ChatCompletionsClientError: LocalizedError, Equatable {
+    case missingAPIKey(String)
+    case invalidBaseURL(String, provider: String)
+    case invalidResponse(String)
     case serverError(String)
-    case emptyOutput
+    case emptyOutput(String)
 
     public var errorDescription: String? {
         switch self {
-        case .missingAPIKey:
-            "Add your DeepSeek API key in Settings."
-        case .invalidBaseURL(let value):
-            "Invalid DeepSeek base URL: \(value)"
-        case .invalidResponse:
-            "DeepSeek returned an invalid response."
+        case .missingAPIKey(let provider):
+            "Add your \(provider) API key in Settings."
+        case .invalidBaseURL(let value, let provider):
+            "Invalid \(provider) base URL: \(value)"
+        case .invalidResponse(let provider):
+            "\(provider) returned an invalid response."
         case .serverError(let message):
             message
-        case .emptyOutput:
-            "DeepSeek returned an empty result."
+        case .emptyOutput(let provider):
+            "\(provider) returned an empty result."
         }
     }
 }
 
-public final class DeepSeekClient: Sendable {
+/// Calls providers that implement the OpenAI-compatible chat completions API.
+public final class ChatCompletionsClient: Sendable {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
@@ -64,18 +64,25 @@ public final class DeepSeekClient: Sendable {
     }
 
     private func complete(
-        messages: [DeepSeekMessage],
+        messages: [ChatMessage],
         temperature: Double,
         trimsOutput: Bool,
         configuration: ProviderConfiguration
     ) async throws -> String {
+        let providerName = configuration.provider.rawValue
         let apiKey = configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !apiKey.isEmpty else {
-            throw DeepSeekClientError.missingAPIKey
+            throw ChatCompletionsClientError.missingAPIKey(providerName)
         }
 
-        guard let baseURL = URL(string: configuration.baseURL) else {
-            throw DeepSeekClientError.invalidBaseURL(configuration.baseURL)
+        let baseURLValue = configuration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            let components = URLComponents(string: baseURLValue),
+            ["http", "https"].contains(components.scheme?.lowercased() ?? ""),
+            components.host != nil,
+            let baseURL = components.url
+        else {
+            throw ChatCompletionsClientError.invalidBaseURL(baseURLValue, provider: providerName)
         }
 
         let endpoint = baseURL.appending(path: "chat/completions")
@@ -83,11 +90,17 @@ public final class DeepSeekClient: Sendable {
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        if configuration.provider == .openRouter {
+            request.setValue("Little Swan", forHTTPHeaderField: "X-OpenRouter-Title")
+        }
+
         request.httpBody = try encoder.encode(
             ChatCompletionRequest(
                 model: configuration.model,
                 messages: messages,
-                temperature: temperature,
+                // Current OpenAI reasoning models may reject non-default temperature values.
+                temperature: configuration.provider == .openAI ? nil : temperature,
                 stream: false
             )
         )
@@ -95,15 +108,15 @@ public final class DeepSeekClient: Sendable {
         let (data, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw DeepSeekClientError.invalidResponse
+            throw ChatCompletionsClientError.invalidResponse(providerName)
         }
 
         guard (200..<300).contains(httpResponse.statusCode) else {
-            if let errorResponse = try? decoder.decode(DeepSeekErrorResponse.self, from: data) {
-                throw DeepSeekClientError.serverError(errorResponse.error.message)
+            if let errorResponse = try? decoder.decode(ChatCompletionErrorResponse.self, from: data) {
+                throw ChatCompletionsClientError.serverError(errorResponse.error.message)
             }
             let fallback = String(data: data, encoding: .utf8) ?? "HTTP \(httpResponse.statusCode)"
-            throw DeepSeekClientError.serverError(fallback)
+            throw ChatCompletionsClientError.serverError(fallback)
         }
 
         let completion = try decoder.decode(ChatCompletionResponse.self, from: data)
@@ -111,16 +124,17 @@ public final class DeepSeekClient: Sendable {
         let trimmedOutput = rawOutput?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard let rawOutput, let trimmedOutput, !trimmedOutput.isEmpty else {
-            throw DeepSeekClientError.emptyOutput
+            throw ChatCompletionsClientError.emptyOutput(providerName)
         }
 
         return trimsOutput ? trimmedOutput : rawOutput
     }
 }
+
 private struct ChatCompletionRequest: Encodable {
     var model: String
-    var messages: [DeepSeekMessage]
-    var temperature: Double
+    var messages: [ChatMessage]
+    var temperature: Double?
     var stream: Bool
 }
 
@@ -136,8 +150,7 @@ private struct ChatCompletionResponse: Decodable {
     }
 }
 
-
-private struct DeepSeekErrorResponse: Decodable {
+private struct ChatCompletionErrorResponse: Decodable {
     var error: APIError
 
     struct APIError: Decodable {

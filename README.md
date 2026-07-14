@@ -2,7 +2,7 @@
 
 Little Swan is a native macOS menu bar app for turning text from any language into natural English.
 
-The first version supports DeepSeek as a bring-your-own-key writing engine and defaults to `deepseek-v4-flash`.
+Little Swan supports DeepSeek, OpenAI, and OpenRouter as bring-your-own-key writing engines. DeepSeek remains the default provider.
 
 ## Features
 
@@ -13,9 +13,9 @@ The first version supports DeepSeek as a bring-your-own-key writing engine and d
 - Editable English output.
 - Reviewable input-polish changes with explicit accept and reject actions.
 - One-click copy for the selected English result with inline feedback.
-- Provider-ready settings page with configurable default writing style.
+- Provider settings for DeepSeek, OpenAI, and OpenRouter with editable base URLs and model identifiers.
 - Resizable main panel that remembers the user's preferred size.
-- DeepSeek API key stored in local app configuration.
+- Provider API key stored in local app configuration.
 - No translation history.
 
 ## Development

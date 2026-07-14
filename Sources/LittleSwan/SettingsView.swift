@@ -134,10 +134,12 @@ struct SettingsView: View {
         GroupBox("Provider") {
             VStack(alignment: .leading, spacing: 12) {
                 settingsRow("Provider") {
-                    Picker("Provider", selection: $draft.provider.name) {
-                        Text("DeepSeek").tag("DeepSeek")
+                    Picker("Provider", selection: selectedProviderBinding) {
+                        ForEach(AIProvider.allCases) { provider in
+                            Text(provider.rawValue).tag(provider)
+                        }
                     }
-                    .disabled(true)
+                    .pickerStyle(.menu)
                     .labelsHidden()
                 }
 
@@ -172,12 +174,28 @@ struct SettingsView: View {
                 }
 
                 settingsRow("Model") {
-                    Picker("Model", selection: $draft.provider.model) {
-                        Text("deepseek-v4-flash").tag("deepseek-v4-flash")
+                    HStack(spacing: 8) {
+                        TextField("Model identifier", text: $draft.provider.model)
+                            .textFieldStyle(.roundedBorder)
+
+                        Menu {
+                            ForEach(draft.provider.provider.suggestedModels, id: \.self) { model in
+                                Button(model) {
+                                    draft.provider.model = model
+                                }
+                            }
+                        } label: {
+                            Label("Suggested models", systemImage: "chevron.down")
+                        }
+                        .labelStyle(.iconOnly)
+                        .help("Choose a suggested model")
                     }
-                    .disabled(true)
-                    .labelsHidden()
                 }
+
+                Text(providerHelpText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
         }
@@ -411,6 +429,28 @@ struct SettingsView: View {
         } else {
             SecureField("API key", text: $draft.provider.apiKey)
                 .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private var selectedProviderBinding: Binding<AIProvider> {
+        Binding(
+            get: { draft.provider.provider },
+            set: { provider in
+                guard provider != draft.provider.provider else { return }
+                draft.provider = provider.defaultConfiguration
+                isAPIKeyVisible = false
+            }
+        )
+    }
+
+    private var providerHelpText: String {
+        switch draft.provider.provider {
+        case .deepSeek:
+            "Uses DeepSeek's OpenAI-compatible API. You can enter another supported DeepSeek model identifier."
+        case .openAI:
+            "Uses OpenAI Chat Completions. Enter any text-capable model available to your API project."
+        case .openRouter:
+            "Uses OpenRouter's unified API. Model identifiers include the provider prefix, such as openai/gpt-5-mini."
         }
     }
 

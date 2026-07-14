@@ -30,7 +30,7 @@ final class TranslationViewModel: ObservableObject {
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
-    private let client: DeepSeekClient
+    private let client: ChatCompletionsClient
     private var translationTask: Task<Void, Never>?
     private var inputPolishTask: Task<Void, Never>?
     private var inputPolishRequestID = UUID()
@@ -40,7 +40,7 @@ final class TranslationViewModel: ObservableObject {
     init(
         configStore: ConfigStore,
         sourceDraftStore: SourceDraftStore? = nil,
-        client: DeepSeekClient = DeepSeekClient()
+        client: ChatCompletionsClient = ChatCompletionsClient()
     ) {
         self.configStore = configStore
         self.sourceDraftStore = sourceDraftStore
@@ -241,7 +241,9 @@ final class TranslationViewModel: ObservableObject {
     private func translate(input: String, style: WritingStyle) async {
         guard configStore.isConfigured else {
             outputText = ""
-            errorMessage = DeepSeekClientError.missingAPIKey.localizedDescription
+            errorMessage = ChatCompletionsClientError.missingAPIKey(
+                configStore.configuration.provider.provider.rawValue
+            ).localizedDescription
             isLoading = false
             return
         }
@@ -272,7 +274,9 @@ final class TranslationViewModel: ObservableObject {
 
     private func polishInput(_ originalInput: String, requestID: UUID) async {
         guard configStore.isConfigured else {
-            errorMessage = DeepSeekClientError.missingAPIKey.localizedDescription
+            errorMessage = ChatCompletionsClientError.missingAPIKey(
+                configStore.configuration.provider.provider.rawValue
+            ).localizedDescription
             isPolishingInput = false
             return
         }

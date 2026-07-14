@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DeepSeekMessage: Codable, Equatable, Sendable {
+public struct ChatMessage: Codable, Equatable, Sendable {
     public var role: String
     public var content: String
 
@@ -11,13 +11,13 @@ public struct DeepSeekMessage: Codable, Equatable, Sendable {
 }
 
 public enum PromptBuilder {
-    public static func messages(input: String, style: WritingStyle) -> [DeepSeekMessage] {
+    public static func messages(input: String, style: WritingStyle) -> [ChatMessage] {
         [
-            DeepSeekMessage(
+            ChatMessage(
                 role: "system",
                 content: translationSystemPrompt(style: style)
             ),
-            DeepSeekMessage(role: "user", content: input)
+            ChatMessage(role: "user", content: input)
         ]
     }
 
@@ -59,9 +59,9 @@ public enum PromptBuilder {
     Return only the final English text. Do not include labels, answers, commentary, explanations, added Markdown wrappers, or quotation marks around the result.
     """
 
-    public static func inputPolishMessages(input: String) -> [DeepSeekMessage] {
+    public static func inputPolishMessages(input: String) -> [ChatMessage] {
         [
-            DeepSeekMessage(
+            ChatMessage(
                 role: "system",
                 content: """
                 You are Little Swan, a macOS writing assistant that proofreads dictated or quickly typed source text before translation.
@@ -77,7 +77,10 @@ public enum PromptBuilder {
                 Return only the polished source text, with no labels, explanations, added markdown wrappers, or quotation marks.
                 """
             ),
-            DeepSeekMessage(role: "user", content: input)
+            ChatMessage(role: "user", content: input)
         ]
     }
 }
+
+@available(*, deprecated, renamed: "ChatMessage")
+public typealias DeepSeekMessage = ChatMessage

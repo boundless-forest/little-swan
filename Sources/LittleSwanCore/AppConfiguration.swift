@@ -245,6 +245,10 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable {
         model == "deepseek-v4-pro" ? Self.defaultModel : model
     }
 
+    public var provider: AIProvider {
+        AIProvider(rawValue: name) ?? .deepSeek
+    }
+
     public static let defaultModel = "deepseek-v4-flash"
 
     public static let deepSeekDefault = ProviderConfiguration(
@@ -253,4 +257,48 @@ public struct ProviderConfiguration: Codable, Equatable, Sendable {
         apiKey: "",
         model: Self.defaultModel
     )
+
+    public static let openAIDefault = ProviderConfiguration(
+        name: "OpenAI",
+        baseURL: "https://api.openai.com/v1",
+        apiKey: "",
+        model: "gpt-5-mini"
+    )
+
+    public static let openRouterDefault = ProviderConfiguration(
+        name: "OpenRouter",
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: "",
+        model: "openai/gpt-5-mini"
+    )
+}
+
+public enum AIProvider: String, CaseIterable, Codable, Identifiable, Sendable {
+    case deepSeek = "DeepSeek"
+    case openAI = "OpenAI"
+    case openRouter = "OpenRouter"
+
+    public var id: String { rawValue }
+
+    public var defaultConfiguration: ProviderConfiguration {
+        switch self {
+        case .deepSeek:
+            .deepSeekDefault
+        case .openAI:
+            .openAIDefault
+        case .openRouter:
+            .openRouterDefault
+        }
+    }
+
+    public var suggestedModels: [String] {
+        switch self {
+        case .deepSeek:
+            ["deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"]
+        case .openAI:
+            ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"]
+        case .openRouter:
+            ["openai/gpt-5-mini", "openai/gpt-4.1-mini", "anthropic/claude-sonnet-4"]
+        }
+    }
 }
