@@ -32,6 +32,7 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var selectedSourceDraftID: UUID
     @Published private(set) var commonPhrases: [String]
     @Published private(set) var isOutputStale = false
+    @Published private(set) var copyFeedbackTrigger = 0
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
@@ -100,6 +101,7 @@ final class TranslationViewModel: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(outputText, forType: .string)
+        copyFeedbackTrigger += 1
     }
 
     func clearInput() {
@@ -117,7 +119,11 @@ final class TranslationViewModel: ObservableObject {
     }
 
     func generateNow() {
-        translateNow(input: inputText, style: selectedStyle)
+        translateNow(
+            input: inputText,
+            style: selectedStyle,
+            copyResultToClipboard: configStore.configuration.copyGeneratedResultToClipboard
+        )
     }
 
     func polishInput() {
@@ -240,18 +246,30 @@ final class TranslationViewModel: ObservableObject {
         }
     }
 
-    private func translateNow(input: String, style: WritingStyle) {
+    private func translateNow(
+        input: String,
+        style: WritingStyle,
+        copyResultToClipboard: Bool = false
+    ) {
         translationTask?.cancel()
 
         let trimmedInput = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else { return }
 
         translationTask = Task { [weak self] in
-            await self?.translate(input: trimmedInput, style: style)
+            await self?.translate(
+                input: trimmedInput,
+                style: style,
+                copyResultToClipboard: copyResultToClipboard
+            )
         }
     }
 
-    private func translate(input: String, style: WritingStyle) async {
+    private func translate(
+        input: String,
+        style: WritingStyle,
+        copyResultToClipboard: Bool = false
+    ) async {
         guard configStore.isConfigured else {
             outputText = ""
             errorMessage = ChatCompletionsClientError.missingAPIKey(
@@ -278,6 +296,10 @@ final class TranslationViewModel: ObservableObject {
             lastGeneratedStyle = style
             isOutputStale = false
             errorMessage = nil
+
+            if copyResultToClipboard {
+                copyOutput()
+            }
         } catch is CancellationError {
             return
         } catch {

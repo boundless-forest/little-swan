@@ -8,7 +8,7 @@ Little Swan supports DeepSeek, OpenAI, and OpenRouter as bring-your-own-key writ
 
 - Menu bar app with a compact Dock-aware floating writing panel.
 - Any-language input with English-only output.
-- Switchable real-time or manual translation with Command-Return generation.
+- Switchable real-time or manual translation with Command-Return generation and optional automatic clipboard copying.
 - Flat writing-style selector: Natural, Polite, Casual, Professional, Concise.
 - Editable English output.
 - Reviewable input-polish changes with explicit accept and reject actions.

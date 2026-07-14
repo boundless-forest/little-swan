@@ -5,6 +5,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var providerConfigurations: [String: ProviderConfiguration]
     public var debounceMilliseconds: Int
     public var realtimeTranslationEnabled: Bool
+    public var copyGeneratedResultToClipboard: Bool
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var toggleShortcut: KeyboardShortcutConfiguration
@@ -15,6 +16,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         providerConfigurations: [String: ProviderConfiguration]? = nil,
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         realtimeTranslationEnabled: Bool = true,
+        copyGeneratedResultToClipboard: Bool = true,
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
@@ -27,6 +29,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         )
         self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
         self.realtimeTranslationEnabled = realtimeTranslationEnabled
+        self.copyGeneratedResultToClipboard = copyGeneratedResultToClipboard
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
@@ -40,6 +43,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case providerConfigurations
         case debounceMilliseconds
         case realtimeTranslationEnabled
+        case copyGeneratedResultToClipboard
         case defaultWritingStyle
         case panelContentSize
         case toggleShortcut
@@ -70,6 +74,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         realtimeTranslationEnabled = try container.decodeIfPresent(
             Bool.self,
             forKey: .realtimeTranslationEnabled
+        ) ?? true
+        copyGeneratedResultToClipboard = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .copyGeneratedResultToClipboard
         ) ?? true
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
         toggleShortcut = try container.decodeIfPresent(

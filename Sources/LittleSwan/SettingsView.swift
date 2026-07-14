@@ -291,6 +291,15 @@ struct SettingsView: View {
                     .disabled(!draft.realtimeTranslationEnabled)
                 }
 
+                settingsRow("Manual generation") {
+                    Toggle(
+                        "Copy result to clipboard after generating",
+                        isOn: $draft.copyGeneratedResultToClipboard
+                    )
+                    .toggleStyle(.switch)
+                    .help("Copies the new English result after clicking Generate or pressing Command-Return.")
+                }
+
                 settingsRow("Default style") {
                     Picker("Default style", selection: $draft.defaultWritingStyle) {
                         ForEach(WritingStyle.allCases) { style in
@@ -648,6 +657,7 @@ struct SettingsView: View {
             provider: .deepSeekDefault,
             debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
             realtimeTranslationEnabled: true,
+            copyGeneratedResultToClipboard: true,
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,

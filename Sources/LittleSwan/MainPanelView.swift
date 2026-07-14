@@ -25,6 +25,9 @@ struct MainPanelView: View {
             .onDisappear {
                 copyFeedbackTask?.cancel()
             }
+            .onChange(of: viewModel.copyFeedbackTrigger) { _, _ in
+                showCopyFeedback()
+            }
     }
 
     private var contentColumns: some View {
@@ -289,7 +292,7 @@ struct MainPanelView: View {
                     .help("Generate English result (Command-Return)")
 
                     Button {
-                        copyOutput()
+                        viewModel.copyOutput()
                     } label: {
                         Label(
                             isCopyFeedbackVisible ? "Copied" : "Copy",
@@ -355,9 +358,7 @@ struct MainPanelView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func copyOutput() {
-        viewModel.copyOutput()
-
+    private func showCopyFeedback() {
         withAnimation(.easeOut(duration: 0.12)) {
             isCopyFeedbackVisible = true
         }

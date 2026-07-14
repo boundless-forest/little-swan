@@ -196,6 +196,7 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.debounceMilliseconds == TranslationTiming.defaultRealtimeDelayMilliseconds)
     precondition(configuration.debounceMilliseconds == 200)
     precondition(configuration.realtimeTranslationEnabled)
+    precondition(configuration.copyGeneratedResultToClipboard)
     precondition(configuration.defaultWritingStyle == .natural)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
@@ -400,6 +401,14 @@ func testConfigurationPersistsManualTranslationMode() throws {
     precondition(decoded.realtimeTranslationEnabled == false)
 }
 
+func testConfigurationPersistsManualGenerationClipboardPreference() throws {
+    let configuration = AppConfiguration(copyGeneratedResultToClipboard: false)
+    let data = try JSONEncoder().encode(configuration)
+    let decoded = try JSONDecoder().decode(AppConfiguration.self, from: data)
+
+    precondition(decoded.copyGeneratedResultToClipboard == false)
+}
+
 func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
     let legacyJSON = """
     {
@@ -416,6 +425,7 @@ func testConfigurationDecodesLegacySettingsWithoutPanelPreferences() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.defaultWritingStyle == .natural)
+    precondition(configuration.copyGeneratedResultToClipboard)
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
 }
 
@@ -913,6 +923,7 @@ try await testChatCompletionsClientBuildsRequestsForEveryProvider()
 try await testChatCompletionsClientReportsProviderSpecificFailures()
 try testConfigurationClampsSlowPersistedRealtimeDelay()
 try testConfigurationPersistsManualTranslationMode()
+try testConfigurationPersistsManualGenerationClipboardPreference()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationIgnoresLegacySourceEnglishLayoutPreference()
 try testConfigurationDecodesPersistedToggleShortcut()
