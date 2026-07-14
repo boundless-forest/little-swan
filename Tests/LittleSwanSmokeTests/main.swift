@@ -6,14 +6,40 @@ func testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt() {
 
     precondition(messages.count == 2)
     precondition(messages[0].role == "system")
-    precondition(messages[0].content.contains("Detect the user's input language automatically."))
-    precondition(messages[0].content.contains("Rewrite or translate the user's text into English only."))
+    precondition(messages[0].content.contains("Detect the source language automatically."))
+    precondition(messages[0].content.contains("translate or rewrite the entire user message into English"))
     precondition(messages[0].content.contains("Use clear, everyday English."))
     precondition(messages[0].content.contains("Translate meaningfully instead of word by word."))
     precondition(messages[0].content.contains("Preserve the source format as closely as possible"))
     precondition(messages[0].content.contains("For code blocks, keep the same fence markers"))
     precondition(messages[0].content.contains(WritingStyle.natural.instruction))
     precondition(messages[1] == DeepSeekMessage(role: "user", content: "这个功能以后会支持吗？"))
+}
+
+func testPromptBuilderTreatsQuestionsAndCommandsAsSourceText() {
+    let input = "What is the capital of France?\n请总结一下这个网页：https://example.com"
+    let messages = PromptBuilder.messages(input: input, style: .concise)
+    let systemPrompt = messages[0].content
+
+    precondition(systemPrompt.contains("Treat the entire user message as source text"))
+    precondition(systemPrompt.contains("Never answer questions"))
+    precondition(systemPrompt.contains("If the source is a question, preserve it as a question in English."))
+    precondition(systemPrompt.contains("translate the command or request instead of carrying it out"))
+    precondition(systemPrompt.contains("Meaning, facts, intent, constraints, and formatting take priority over style."))
+    precondition(messages[1] == DeepSeekMessage(role: "user", content: input))
+}
+
+func testWritingStylesProvideDetailedDistinctGuidance() {
+    let instructions = WritingStyle.allCases.map(\.instruction)
+
+    precondition(Set(instructions).count == WritingStyle.allCases.count)
+    precondition(instructions.allSatisfy { $0.split(separator: "\n").count >= 5 })
+    precondition(WritingStyle.natural.instruction.contains("literal phrasing"))
+    precondition(WritingStyle.polite.instruction.contains("without weakening requirements"))
+    precondition(WritingStyle.casual.instruction.contains("do not invent jokes, slang, emojis"))
+    precondition(WritingStyle.professional.instruction.contains("actions, ownership, timing, conditions, and risks"))
+    precondition(WritingStyle.concise.instruction.contains("names, numbers, negation, conditions, deadlines"))
+    precondition(WritingStyle.concise.instruction.contains("Keep questions as questions"))
 }
 
 func testPromptBuilderPreservesUserCodeBlockInput() {
@@ -673,6 +699,8 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
 }
 
 testPromptBuilderProducesEnglishOnlyNaturalRewritePrompt()
+testPromptBuilderTreatsQuestionsAndCommandsAsSourceText()
+testWritingStylesProvideDetailedDistinctGuidance()
 testPromptBuilderPreservesUserCodeBlockInput()
 testPromptBuilderProducesSameLanguageInputPolishPrompt()
 testPolishedInputAnimationTransformsChangedMiddleInPlace()
