@@ -8,9 +8,11 @@ final class GlobalHotKeyController {
 
     private var hotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
+    private let identifier: UInt32
     private let action: () -> Void
 
-    init(action: @escaping () -> Void) {
+    init(identifier: UInt32, action: @escaping () -> Void) {
+        self.identifier = identifier
         self.action = action
         installHandler()
     }
@@ -22,7 +24,7 @@ final class GlobalHotKeyController {
         var nextHotKeyRef: EventHotKeyRef?
         let nextHotKeyID = EventHotKeyID(
             signature: Self.signature,
-            id: 1
+            id: identifier
         )
 
         let status = RegisterEventHotKey(
@@ -52,11 +54,27 @@ final class GlobalHotKeyController {
         let selfPointer = Unmanaged.passUnretained(self).toOpaque()
         InstallEventHandler(
             GetApplicationEventTarget(),
-            { _, _, userData in
-                guard let userData else { return noErr }
+            { _, event, userData in
+                guard let event, let userData else { return OSStatus(eventNotHandledErr) }
                 let controller = Unmanaged<GlobalHotKeyController>
                     .fromOpaque(userData)
                     .takeUnretainedValue()
+
+                var hotKeyID = EventHotKeyID(signature: 0, id: 0)
+                let status = GetEventParameter(
+                    event,
+                    EventParamName(kEventParamDirectObject),
+                    EventParamType(typeEventHotKeyID),
+                    nil,
+                    MemoryLayout<EventHotKeyID>.size,
+                    nil,
+                    &hotKeyID
+                )
+                guard status == noErr,
+                      hotKeyID.signature == GlobalHotKeyController.signature,
+                      hotKeyID.id == controller.identifier else {
+                    return OSStatus(eventNotHandledErr)
+                }
 
                 Task { @MainActor in
                     controller.action()

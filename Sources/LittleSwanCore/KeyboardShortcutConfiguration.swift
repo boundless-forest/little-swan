@@ -7,11 +7,22 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let commandModifierFlag: UInt = 1 << 20
 
     public static let lKeyCode: UInt16 = 37
+    public static let zeroKeyCode: UInt16 = 29
     public static let spaceKeyCode: UInt16 = 49
 
     public static let defaultToggleShortcut = KeyboardShortcutConfiguration(
         keyCode: lKeyCode,
         modifierFlags: controlModifierFlag
+    )
+
+    public static let defaultResetWindowShortcut = KeyboardShortcutConfiguration(
+        keyCode: zeroKeyCode,
+        modifierFlags: controlModifierFlag
+    )
+
+    public static let fallbackResetWindowShortcut = KeyboardShortcutConfiguration(
+        keyCode: zeroKeyCode,
+        modifierFlags: controlModifierFlag | shiftModifierFlag
     )
 
     public var keyCode: UInt16?
@@ -37,6 +48,10 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
 
     public var isValid: Bool {
         keyCode != nil && modifierFlags & Self.supportedModifierMask != 0
+    }
+
+    public func conflicts(with other: KeyboardShortcutConfiguration) -> Bool {
+        isValid && other.isValid && self == other
     }
 
     private enum CodingKeys: String, CodingKey {

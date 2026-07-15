@@ -15,7 +15,7 @@ Little Swan supports DeepSeek, OpenAI, and OpenRouter as bring-your-own-key writ
 - One-click copy for the selected English result with inline feedback.
 - Separate provider settings for DeepSeek, OpenAI, and OpenRouter with editable base URLs, model identifiers, and connection testing.
 - Five fixed numbered drafts.
-- Resizable main panel that remembers the user's preferred size.
+- Resizable main panel that remembers the user's preferred size and has a customizable reset shortcut.
 - Provider API key stored in local app configuration.
 - No translation history.
 

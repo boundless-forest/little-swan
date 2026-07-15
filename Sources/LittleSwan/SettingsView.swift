@@ -83,7 +83,7 @@ struct SettingsView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Provider settings, common phrases, translation preferences, and the keyboard shortcut will be reset.")
+            Text("Provider settings, common phrases, translation preferences, and keyboard shortcuts will be reset.")
         }
         .confirmationDialog(
             "Restore the default common phrases?",
@@ -479,9 +479,31 @@ struct SettingsView: View {
                             }
                         }
 
-                        Text(shortcutHelpText)
+                        Text(toggleShortcutHelpText)
                             .font(.caption)
-                            .foregroundStyle(draft.toggleShortcut.isValid ? Color.secondary : Color.red)
+                            .foregroundStyle(toggleShortcutCanBeSaved ? Color.secondary : Color.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                settingsRow("Reset window") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            KeyboardShortcutRecorder(
+                                shortcut: $draft.resetWindowShortcut,
+                                accessibilityLabel: "Reset main window shortcut",
+                                accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
+                            )
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.resetWindowShortcut = .defaultResetWindowShortcut
+                            }
+                        }
+
+                        Text(resetWindowShortcutHelpText)
+                            .font(.caption)
+                            .foregroundStyle(resetWindowShortcutCanBeSaved ? Color.secondary : Color.red)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -661,16 +683,41 @@ struct SettingsView: View {
             defaultWritingStyle: .natural,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,
+            resetWindowShortcut: .defaultResetWindowShortcut,
             commonPhrases: .default
         )
     }
 
-    private var shortcutHelpText: String {
-        if draft.toggleShortcut.isValid {
+    private var toggleShortcutHelpText: String {
+        if shortcutsConflict {
+            "Shortcut was not saved. Choose a different shortcut for each action."
+        } else if draft.toggleShortcut.isValid {
             "Press this shortcut anywhere to open or hide Little Swan. Click the field, then press a new key combination."
         } else {
             "Shortcut was not saved. Include at least one modifier key."
         }
+    }
+
+    private var resetWindowShortcutHelpText: String {
+        if shortcutsConflict {
+            "Shortcut was not saved. Choose a different shortcut for each action."
+        } else if draft.resetWindowShortcut.isValid {
+            "Press this shortcut anywhere to reset the main window's position and size."
+        } else {
+            "Shortcut was not saved. Include at least one modifier key."
+        }
+    }
+
+    private var shortcutsConflict: Bool {
+        draft.toggleShortcut.conflicts(with: draft.resetWindowShortcut)
+    }
+
+    private var toggleShortcutCanBeSaved: Bool {
+        draft.toggleShortcut.isValid && !shortcutsConflict
+    }
+
+    private var resetWindowShortcutCanBeSaved: Bool {
+        draft.resetWindowShortcut.isValid && !shortcutsConflict
     }
 
     private func scheduleAutoSave() {
@@ -690,6 +737,13 @@ struct SettingsView: View {
         nextConfiguration.commonPhrases = nextConfiguration.commonPhrases.normalized()
         if !nextConfiguration.toggleShortcut.isValid {
             nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
+        }
+        if !nextConfiguration.resetWindowShortcut.isValid {
+            nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
+        }
+        if nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.resetWindowShortcut) {
+            nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
+            nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
         }
         configStore.configuration = nextConfiguration
         configStore.save()

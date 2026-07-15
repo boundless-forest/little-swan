@@ -9,6 +9,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var toggleShortcut: KeyboardShortcutConfiguration
+    public var resetWindowShortcut: KeyboardShortcutConfiguration
     public var commonPhrases: CommonPhraseCollection
 
     public init(
@@ -20,6 +21,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         defaultWritingStyle: WritingStyle = .natural,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
+        resetWindowShortcut: KeyboardShortcutConfiguration = .defaultResetWindowShortcut,
         commonPhrases: CommonPhraseCollection = .default
     ) {
         self.provider = provider
@@ -33,6 +35,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
+        self.resetWindowShortcut = Self.nonConflictingResetWindowShortcut(
+            resetWindowShortcut,
+            toggleShortcut: toggleShortcut
+        )
         self.commonPhrases = commonPhrases.normalized()
     }
 
@@ -47,6 +53,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case defaultWritingStyle
         case panelContentSize
         case toggleShortcut
+        case resetWindowShortcut
         case commonPhrases
     }
 
@@ -84,6 +91,14 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             KeyboardShortcutConfiguration.self,
             forKey: .toggleShortcut
         ) ?? .defaultToggleShortcut
+        let decodedResetWindowShortcut = try container.decodeIfPresent(
+            KeyboardShortcutConfiguration.self,
+            forKey: .resetWindowShortcut
+        ) ?? .defaultResetWindowShortcut
+        resetWindowShortcut = Self.nonConflictingResetWindowShortcut(
+            decodedResetWindowShortcut,
+            toggleShortcut: toggleShortcut
+        )
         commonPhrases = try container.decodeIfPresent(
             CommonPhraseCollection.self,
             forKey: .commonPhrases
@@ -124,6 +139,17 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public mutating func updateSelectedProvider(_ configuration: ProviderConfiguration) {
         provider = configuration
         providerConfigurations[configuration.provider.rawValue] = configuration
+    }
+
+    private static func nonConflictingResetWindowShortcut(
+        _ shortcut: KeyboardShortcutConfiguration,
+        toggleShortcut: KeyboardShortcutConfiguration
+    ) -> KeyboardShortcutConfiguration {
+        guard shortcut.conflicts(with: toggleShortcut) else { return shortcut }
+        guard KeyboardShortcutConfiguration.defaultResetWindowShortcut.conflicts(with: toggleShortcut) else {
+            return .defaultResetWindowShortcut
+        }
+        return .fallbackResetWindowShortcut
     }
 
     private static func normalizedProviderConfigurations(

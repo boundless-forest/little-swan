@@ -4,6 +4,8 @@ import SwiftUI
 
 struct KeyboardShortcutRecorder: NSViewRepresentable {
     @Binding var shortcut: KeyboardShortcutConfiguration
+    var accessibilityLabel = "Open or hide Little Swan shortcut"
+    var accessibilityHelp = "Click, then press a keyboard shortcut with at least one modifier key"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -19,8 +21,8 @@ struct KeyboardShortcutRecorder: NSViewRepresentable {
         field.font = .systemFont(ofSize: 13, weight: .medium)
         field.placeholderString = "Click and press shortcut"
         field.focusRingType = .exterior
-        field.setAccessibilityLabel("Open or hide Little Swan shortcut")
-        field.setAccessibilityHelp("Click, then press a keyboard shortcut with at least one modifier key")
+        field.setAccessibilityLabel(accessibilityLabel)
+        field.setAccessibilityHelp(accessibilityHelp)
         field.onShortcutChange = { shortcut in
             context.coordinator.parent.shortcut = shortcut
         }
@@ -31,6 +33,8 @@ struct KeyboardShortcutRecorder: NSViewRepresentable {
 
     func updateNSView(_ nsView: ShortcutRecorderField, context: Context) {
         context.coordinator.parent = self
+        nsView.setAccessibilityLabel(accessibilityLabel)
+        nsView.setAccessibilityHelp(accessibilityHelp)
         nsView.recordedDisplayString = shortcut.displayString
         if nsView.window?.firstResponder !== nsView {
             nsView.stringValue = shortcut.displayString

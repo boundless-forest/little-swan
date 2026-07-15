@@ -11,7 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var panelController: FloatingPanelController?
     private var settingsController: SettingsWindowController?
-    private var hotKeyController: GlobalHotKeyController?
+    private var toggleHotKeyController: GlobalHotKeyController?
+    private var resetWindowHotKeyController: GlobalHotKeyController?
+    private var resetMainWindowMenuItem: NSMenuItem?
     private var cancellables = Set<AnyCancellable>()
     private let configStore = ConfigStore()
     private let sourceDraftStore = SourceDraftStore()
@@ -35,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         configureStatusItem()
-        configureGlobalShortcut()
+        configureGlobalShortcuts()
         panelController?.show()
     }
 
@@ -63,6 +65,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
 
+        let windowMenuItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        let resetMainWindowItem = NSMenuItem(
+            title: "Reset Main Window Position and Size",
+            action: #selector(resetMainWindow),
+            keyEquivalent: ""
+        )
+        resetMainWindowItem.target = self
+        apply(configStore.configuration.resetWindowShortcut, to: resetMainWindowItem)
+        windowMenu.addItem(resetMainWindowItem)
+        resetMainWindowMenuItem = resetMainWindowItem
+        windowMenuItem.submenu = windowMenu
+        mainMenu.addItem(windowMenuItem)
+        NSApp.windowsMenu = windowMenu
+
         NSApp.mainMenu = mainMenu
     }
 
@@ -78,19 +95,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    private func configureGlobalShortcut() {
-        let hotKeyController = GlobalHotKeyController { [weak self] in
+    private func configureGlobalShortcuts() {
+        let toggleHotKeyController = GlobalHotKeyController(identifier: 1) { [weak self] in
             self?.panelController?.toggle()
         }
-        self.hotKeyController = hotKeyController
+        let resetWindowHotKeyController = GlobalHotKeyController(identifier: 2) { [weak self] in
+            self?.panelController?.resetPlacementAndSize()
+        }
+        self.toggleHotKeyController = toggleHotKeyController
+        self.resetWindowHotKeyController = resetWindowHotKeyController
 
         configStore.$configuration
             .map(\.toggleShortcut)
             .removeDuplicates()
             .sink { shortcut in
-                hotKeyController.update(shortcut: shortcut)
+                toggleHotKeyController.update(shortcut: shortcut)
             }
             .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.resetWindowShortcut)
+            .removeDuplicates()
+            .sink { [weak self] shortcut in
+                resetWindowHotKeyController.update(shortcut: shortcut)
+                if let menuItem = self?.resetMainWindowMenuItem {
+                    self?.apply(shortcut, to: menuItem)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func apply(_ shortcut: KeyboardShortcutConfiguration, to menuItem: NSMenuItem) {
+        menuItem.keyEquivalent = shortcut.menuKeyEquivalent ?? ""
+        menuItem.keyEquivalentModifierMask = shortcut.menuModifierFlags.map(NSEvent.ModifierFlags.init(rawValue:)) ?? []
     }
 
     private func statusBarIcon() -> NSImage? {
@@ -153,6 +190,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         showSettings()
+    }
+
+    @objc private func resetMainWindow() {
+        panelController?.resetPlacementAndSize()
     }
 
     @objc private func quit() {

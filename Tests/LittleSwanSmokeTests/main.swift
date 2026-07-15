@@ -201,6 +201,8 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.panelContentSize == PanelPresentation.defaultContentSize)
     precondition(configuration.toggleShortcut == KeyboardShortcutConfiguration.defaultToggleShortcut)
     precondition(configuration.toggleShortcut.displayString == "⌃L")
+    precondition(configuration.resetWindowShortcut == KeyboardShortcutConfiguration.defaultResetWindowShortcut)
+    precondition(configuration.resetWindowShortcut.displayString == "⌃0")
     precondition(configuration.commonPhrases == CommonPhraseCollection.default)
 }
 
@@ -452,7 +454,7 @@ func testConfigurationIgnoresLegacySourceEnglishLayoutPreference() throws {
     precondition(object?["sourceEnglishLayout"] == nil)
 }
 
-func testConfigurationDecodesPersistedToggleShortcut() throws {
+func testConfigurationDecodesPersistedShortcuts() throws {
     let persistedJSON = """
     {
       "provider": {
@@ -465,6 +467,10 @@ func testConfigurationDecodesPersistedToggleShortcut() throws {
       "toggleShortcut": {
         "keyCode": 49,
         "modifierFlags": 1048576
+      },
+      "resetWindowShortcut": {
+        "keyCode": 15,
+        "modifierFlags": 786432
       }
     }
     """.data(using: .utf8)!
@@ -474,9 +480,15 @@ func testConfigurationDecodesPersistedToggleShortcut() throws {
     precondition(configuration.toggleShortcut.keyCode == 49)
     precondition(configuration.toggleShortcut.modifierFlags == KeyboardShortcutConfiguration.commandModifierFlag)
     precondition(configuration.toggleShortcut.displayString == "⌘Space")
+    precondition(configuration.resetWindowShortcut.keyCode == 15)
+    precondition(
+        configuration.resetWindowShortcut.modifierFlags
+            == KeyboardShortcutConfiguration.controlModifierFlag | KeyboardShortcutConfiguration.optionModifierFlag
+    )
+    precondition(configuration.resetWindowShortcut.displayString == "⌃⌥R")
 }
 
-func testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut() throws {
+func testConfigurationDecodesLegacySettingsWithDefaultShortcuts() throws {
     let legacyJSON = """
     {
       "provider": {
@@ -492,6 +504,36 @@ func testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut() throws {
     let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
 
     precondition(configuration.toggleShortcut == .defaultToggleShortcut)
+    precondition(configuration.resetWindowShortcut == .defaultResetWindowShortcut)
+}
+
+func testConfigurationAvoidsShortcutConflictsDuringMigration() throws {
+    let legacyJSON = """
+    {
+      "provider": {
+        "name": "DeepSeek",
+        "baseURL": "https://api.deepseek.com",
+        "apiKey": "",
+        "model": "deepseek-v4-flash"
+      },
+      "toggleShortcut": {
+        "keyCode": 29,
+        "modifierFlags": 262144
+      }
+    }
+    """.data(using: .utf8)!
+
+    let configuration = try JSONDecoder().decode(AppConfiguration.self, from: legacyJSON)
+
+    precondition(configuration.toggleShortcut == .defaultResetWindowShortcut)
+    precondition(configuration.resetWindowShortcut == .fallbackResetWindowShortcut)
+    precondition(configuration.resetWindowShortcut.displayString == "⌃⇧0")
+
+    let initializedConfiguration = AppConfiguration(
+        toggleShortcut: .defaultResetWindowShortcut,
+        resetWindowShortcut: .defaultResetWindowShortcut
+    )
+    precondition(initializedConfiguration.resetWindowShortcut == .fallbackResetWindowShortcut)
 }
 
 func testCommonPhraseCollectionNormalizesPhrases() {
@@ -584,6 +626,17 @@ func testKeyboardShortcutRejectsMissingModifierOrKey() {
     precondition(KeyboardShortcutConfiguration.defaultToggleShortcut.isValid)
 }
 
+func testKeyboardShortcutDetectsConflictingActions() {
+    let shortcut = KeyboardShortcutConfiguration.defaultToggleShortcut
+
+    precondition(shortcut.conflicts(with: shortcut))
+    precondition(!shortcut.conflicts(with: .defaultResetWindowShortcut))
+    precondition(
+        !KeyboardShortcutConfiguration(keyCode: nil, modifierFlags: 0)
+            .conflicts(with: KeyboardShortcutConfiguration(keyCode: nil, modifierFlags: 0))
+    )
+}
+
 func testKeyboardShortcutDecodingMasksUnsupportedModifiers() throws {
     let data = """
     {
@@ -602,6 +655,13 @@ func testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut() {
     let shortcut = KeyboardShortcutConfiguration.defaultToggleShortcut
 
     precondition(shortcut.menuKeyEquivalent == "l")
+    precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+}
+
+func testKeyboardShortcutProvidesMenuEquivalentForDefaultResetWindowShortcut() {
+    let shortcut = KeyboardShortcutConfiguration.defaultResetWindowShortcut
+
+    precondition(shortcut.menuKeyEquivalent == "0")
     precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
 }
 
@@ -926,16 +986,19 @@ try testConfigurationPersistsManualTranslationMode()
 try testConfigurationPersistsManualGenerationClipboardPreference()
 try testConfigurationDecodesLegacySettingsWithoutPanelPreferences()
 try testConfigurationIgnoresLegacySourceEnglishLayoutPreference()
-try testConfigurationDecodesPersistedToggleShortcut()
-try testConfigurationDecodesLegacySettingsWithDefaultToggleShortcut()
+try testConfigurationDecodesPersistedShortcuts()
+try testConfigurationDecodesLegacySettingsWithDefaultShortcuts()
+try testConfigurationAvoidsShortcutConflictsDuringMigration()
 testCommonPhraseCollectionNormalizesPhrases()
 testCommonPhraseInsertionAppendsWithReadableSpacing()
 testCommonPhraseDisplayCompactsLongMenuTitles()
 try testConfigurationDecodesPersistedCommonPhrases()
 try testConfigurationDecodesLegacySettingsWithDefaultCommonPhrases()
 testKeyboardShortcutRejectsMissingModifierOrKey()
+testKeyboardShortcutDetectsConflictingActions()
 try testKeyboardShortcutDecodingMasksUnsupportedModifiers()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut()
+testKeyboardShortcutProvidesMenuEquivalentForDefaultResetWindowShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys()
 testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent()
 testPanelPresentationClampsContentSize()
