@@ -18,6 +18,10 @@ public struct SourceDraft: Codable, Equatable, Identifiable, Sendable {
         self.updatedAt = updatedAt
     }
 
+    public var hasContent: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     public func displayTitle(fallbackIndex: Int) -> String {
         "Draft \(fallbackIndex + 1)"
     }

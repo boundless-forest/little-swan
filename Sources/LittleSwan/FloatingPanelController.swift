@@ -33,6 +33,7 @@ final class FloatingPanelController {
         panel.title = "Little Swan"
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
+        panel.backgroundColor = LittleSwanTheme.Palette.appKitWindowCanvas
         panel.isMovableByWindowBackground = true
         panel.isFloatingPanel = true
         panel.level = .floating

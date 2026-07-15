@@ -3,6 +3,8 @@ import LittleSwanCore
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     @ObservedObject var configStore: ConfigStore
     @State private var draft: AppConfiguration
     @State private var didSave = false
@@ -16,6 +18,7 @@ struct SettingsView: View {
     @State private var isPhraseRestoreConfirmationPresented = false
     @State private var isCustomDelayVisible = false
     @State private var selectedCommonPhraseIndex = 0
+    @State private var hoveredSettingsTab: SettingsTab?
     @FocusState private var isCommonPhraseEditorFocused: Bool
     @FocusState private var focusedSettingsTab: SettingsTab?
 
@@ -31,25 +34,28 @@ struct SettingsView: View {
                     .frame(width: 190)
 
                 Divider()
+                    .overlay(LittleSwanTheme.Palette.divider)
                     .padding(.horizontal, 14)
 
                 selectedTabContent
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .id(selectedTab)
-                    .transition(.opacity)
-                    .animation(.easeOut(duration: 0.12), value: selectedTab)
-                .frame(maxWidth: .infinity)
+                    .transition(selectedTabTransition)
+                    .animation(selectedTabAnimation, value: selectedTab)
+                    .frame(maxWidth: .infinity)
             }
             .frame(maxHeight: .infinity, alignment: .top)
 
             HStack {
                 if let error = configStore.lastError {
                     Text(error)
-                        .foregroundStyle(.red)
+                        .font(LittleSwanTheme.Typography.status)
+                        .foregroundStyle(LittleSwanTheme.Palette.danger)
                         .lineLimit(1)
                 } else if didSave {
                     Label("Saved", systemImage: "checkmark.circle.fill")
-                        .foregroundStyle(.secondary)
+                        .font(LittleSwanTheme.Typography.status)
+                        .foregroundStyle(LittleSwanTheme.Palette.success)
                 }
 
                 Spacer()
@@ -57,10 +63,19 @@ struct SettingsView: View {
                 Button("Restore all defaults…") {
                     isRestoreConfirmationPresented = true
                 }
+                .buttonStyle(.borderless)
+                .font(LittleSwanTheme.Typography.buttonLabel)
+                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
             }
         }
         .padding(20)
         .frame(minWidth: 760, minHeight: 500)
+        .background(LittleSwanTheme.Palette.windowCanvas)
+        .font(LittleSwanTheme.Typography.control)
+        .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
+        .symbolRenderingMode(.hierarchical)
+        .tint(LittleSwanTheme.Palette.accent)
+        .groupBoxStyle(LittleSwanGroupBoxStyle())
         .onChange(of: draft) { _, _ in
             connectionTestTask?.cancel()
             connectionStatus = .idle
@@ -107,35 +122,70 @@ struct SettingsView: View {
     }
 
     private func tabButton(_ tab: SettingsTab) -> some View {
-        Button {
+        let isSelected = selectedTab == tab
+        let isFocused = focusedSettingsTab == tab
+        let isHovered = hoveredSettingsTab == tab
+
+        return Button {
             focusedSettingsTab = tab
             selectedTab = tab
         } label: {
             HStack(spacing: 9) {
                 Image(systemName: tab.systemImage)
+                    .font(.system(size: 13, weight: .medium))
                     .frame(width: 18)
 
                 Text(tab.label)
+                    .font(
+                        isSelected
+                            ? LittleSwanTheme.Typography.controlStrong
+                            : LittleSwanTheme.Typography.control
+                    )
                     .lineLimit(1)
 
                 Spacer()
             }
-            .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
-            .foregroundStyle(selectedTab == tab ? Color.accentColor : Color.primary)
+            .foregroundStyle(isSelected ? LittleSwanTheme.Palette.accent : LittleSwanTheme.Palette.textPrimary)
             .padding(.horizontal, 8)
             .frame(height: 32)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(selectedTab == tab ? Color.accentColor.opacity(0.12) : Color.clear)
-            )
+            .background {
+                RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+                    .fill(
+                        isSelected
+                            ? LittleSwanTheme.Palette.accentSoft
+                            : (isHovered ? LittleSwanTheme.Palette.surfaceSubtle : Color.clear)
+                    )
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+                    .stroke(
+                        isFocused ? LittleSwanTheme.Palette.accent : Color.clear,
+                        lineWidth: LittleSwanTheme.Stroke.focus
+                    )
+            }
         }
         .buttonStyle(.plain)
         .focused($focusedSettingsTab, equals: tab)
+        .onHover { isHovering in
+            if isHovering {
+                hoveredSettingsTab = tab
+            } else if hoveredSettingsTab == tab {
+                hoveredSettingsTab = nil
+            }
+        }
         .help(tab.label)
         .accessibilityLabel(tab.label)
-        .accessibilityValue(selectedTab == tab ? "Selected" : "Not selected")
-        .accessibilityAddTraits(selectedTab == tab ? .isSelected : [])
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var selectedTabTransition: AnyTransition {
+        accessibilityReduceMotion ? .identity : .opacity
+    }
+
+    private var selectedTabAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeOut(duration: 0.12)
     }
 
     @ViewBuilder
@@ -173,8 +223,8 @@ struct SettingsView: View {
 
                         if !draft.provider.baseURL.isEmpty, !isProviderBaseURLValid {
                             Label("Enter a valid HTTP or HTTPS URL.", systemImage: "exclamationmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.red)
+                                .font(LittleSwanTheme.Typography.status)
+                                .foregroundStyle(LittleSwanTheme.Palette.danger)
                         }
                     }
                 }
@@ -189,6 +239,7 @@ struct SettingsView: View {
                             Label("Paste", systemImage: "doc.on.clipboard")
                         }
                         .labelStyle(.iconOnly)
+                        .buttonStyle(LittleSwanIconButtonStyle())
                         .help("Paste API key")
 
                         Button {
@@ -200,6 +251,7 @@ struct SettingsView: View {
                             )
                         }
                         .labelStyle(.iconOnly)
+                        .buttonStyle(LittleSwanIconButtonStyle())
                         .help(isAPIKeyVisible ? "Hide API key" : "Show API key")
                     }
                 }
@@ -219,13 +271,14 @@ struct SettingsView: View {
                             } label: {
                                 Label("Suggested", systemImage: "chevron.down")
                             }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
                             .help("Choose a suggested model")
                         }
 
                         if draft.provider.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             Label("Enter a model identifier.", systemImage: "exclamationmark.circle")
-                                .font(.caption)
-                                .foregroundStyle(.red)
+                                .font(LittleSwanTheme.Typography.status)
+                                .foregroundStyle(LittleSwanTheme.Palette.danger)
                         }
                     }
                 }
@@ -241,14 +294,15 @@ struct SettingsView: View {
                             Label("Test connection", systemImage: "bolt.horizontal.circle")
                         }
                     }
+                    .font(LittleSwanTheme.Typography.buttonLabel)
                     .disabled(!canTestProviderConnection || connectionStatus == .testing)
 
                     connectionStatusView
                 }
 
                 Text(providerHelpText + " API keys are stored in Little Swan's local configuration file.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(LittleSwanTheme.Typography.helper)
+                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 4)
@@ -261,6 +315,8 @@ struct SettingsView: View {
                 settingsRow("Realtime") {
                     Toggle("Translate automatically while typing", isOn: $draft.realtimeTranslationEnabled)
                         .toggleStyle(.switch)
+                        .accessibilityLabel("Translate automatically while typing")
+                        .accessibilityHint("Automatically starts translation after typing pauses")
                 }
 
                 settingsRow("Realtime delay") {
@@ -283,8 +339,8 @@ struct SettingsView: View {
                         }
 
                         Text(realtimeDelayHelpText)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .help("Translation starts after typing stays unchanged for this delay.")
@@ -298,6 +354,8 @@ struct SettingsView: View {
                     )
                     .toggleStyle(.switch)
                     .help("Copies the new English result after clicking Generate or pressing Command-Return.")
+                    .accessibilityLabel("Copy result to clipboard after generating")
+                    .accessibilityHint("Copies the new English result after manual generation")
                 }
 
                 settingsRow("Default style") {
@@ -319,8 +377,8 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 10) {
                     Text("Add one reusable phrase or text block per entry. These appear in the source header’s phrase menu and can be inserted into the current draft with one click.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(LittleSwanTheme.Typography.helper)
+                        .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
@@ -328,8 +386,8 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(spacing: 8) {
                             Text("Phrases")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
+                                .font(LittleSwanTheme.Typography.buttonLabel)
+                                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
 
                             Spacer()
 
@@ -338,6 +396,7 @@ struct SettingsView: View {
                             } label: {
                                 Label("New", systemImage: "plus")
                             }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
                             .controlSize(.small)
                             .disabled(draft.commonPhrases.phrases.count >= CommonPhraseCollection.maximumPhraseCount)
                             .help("Create a new common phrase")
@@ -347,8 +406,8 @@ struct SettingsView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 if draft.commonPhrases.phrases.isEmpty {
                                     Text("No common phrases yet. Click New to add one.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .font(LittleSwanTheme.Typography.helper)
+                                        .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                                         .frame(maxWidth: .infinity, minHeight: 96)
                                 } else {
                                     ForEach(draft.commonPhrases.phrases.indices, id: \.self) { index in
@@ -358,6 +417,13 @@ struct SettingsView: View {
                             }
                             .padding(1)
                         }
+                        .background(LittleSwanTheme.Palette.surfaceSubtle)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: LittleSwanTheme.Radius.compact,
+                                style: .continuous
+                            )
+                        )
                     }
                     .frame(width: 220)
                     .frame(minHeight: 270)
@@ -365,16 +431,21 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         if draft.commonPhrases.phrases.isEmpty {
                             Text("Select or add a phrase to edit it here.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .font(LittleSwanTheme.Typography.helper)
+                                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                                .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                .background(LittleSwanTheme.Palette.surfaceSubtle)
+                                .clipShape(
+                                    RoundedRectangle(
+                                        cornerRadius: LittleSwanTheme.Radius.compact,
+                                        style: .continuous
+                                    )
+                                )
                         } else {
                             HStack(spacing: 8) {
                                 Text("Edit selected phrase")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(.secondary)
+                                    .font(LittleSwanTheme.Typography.buttonLabel)
+                                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
 
                                 Spacer()
 
@@ -383,21 +454,40 @@ struct SettingsView: View {
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
+                                .font(LittleSwanTheme.Typography.buttonLabel)
                                 .controlSize(.small)
                                 .disabled(selectedValidCommonPhraseIndex == nil)
                                 .help("Delete the selected common phrase")
                             }
 
                             TextEditor(text: selectedCommonPhraseBinding)
-                                .font(.system(size: 13))
+                                .font(LittleSwanTheme.Typography.control)
+                                .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
                                 .scrollContentBackground(.hidden)
-                                .background(Color(nsColor: .textBackgroundColor))
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color(nsColor: .separatorColor))
+                                .background(LittleSwanTheme.Palette.surfaceRaised)
+                                .clipShape(
+                                    RoundedRectangle(
+                                        cornerRadius: LittleSwanTheme.Radius.compact,
+                                        style: .continuous
+                                    )
                                 )
+                                .overlay {
+                                    RoundedRectangle(
+                                        cornerRadius: LittleSwanTheme.Radius.compact,
+                                        style: .continuous
+                                    )
+                                    .stroke(
+                                        isCommonPhraseEditorFocused
+                                            ? LittleSwanTheme.Palette.accent
+                                            : LittleSwanTheme.Palette.border,
+                                        lineWidth: isCommonPhraseEditorFocused
+                                            ? LittleSwanTheme.Stroke.focus
+                                            : LittleSwanTheme.Stroke.regular
+                                    )
+                                }
                                 .help("Paste or edit a large multi-line text block here.")
+                                .accessibilityLabel("Selected common phrase")
+                                .accessibilityHint("Paste or edit a large multi-line text block")
                                 .focused($isCommonPhraseEditorFocused)
                         }
                     }
@@ -406,14 +496,17 @@ struct SettingsView: View {
 
                 HStack {
                     Text(commonPhraseLimitText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(LittleSwanTheme.Typography.helper)
+                        .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
 
                     Spacer()
 
                     Button("Restore phrase defaults…") {
                         isPhraseRestoreConfirmationPresented = true
                     }
+                    .buttonStyle(.borderless)
+                    .font(LittleSwanTheme.Typography.buttonLabel)
+                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                 }
             }
             .padding(.vertical, 4)
@@ -421,46 +514,52 @@ struct SettingsView: View {
     }
 
     private func commonPhraseRow(_ index: Int) -> some View {
-        HStack(alignment: .center, spacing: 6) {
+        let isSelected = index == selectedValidCommonPhraseIndex
+
+        return HStack(alignment: .center, spacing: 6) {
             Button {
                 selectedCommonPhraseIndex = index
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 5) {
-                        if index == selectedValidCommonPhraseIndex {
-                            Image(systemName: "checkmark")
-                                .font(.caption.weight(.bold))
-                                .foregroundStyle(Color.accentColor)
-                        }
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(LittleSwanTheme.Palette.accent)
+                            .frame(width: 12)
+                            .opacity(isSelected ? 1 : 0)
+                            .accessibilityHidden(true)
 
                         Text(commonPhrasePreview(for: index))
-                            .font(.system(size: 13))
+                            .font(LittleSwanTheme.Typography.control)
                     }
-                        .lineLimit(2)
-                        .foregroundStyle(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(2)
+                    .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(commonPhraseDetailText(for: index))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(LittleSwanTheme.Typography.helper)
+                        .foregroundStyle(LittleSwanTheme.Palette.textTertiary)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(index == selectedValidCommonPhraseIndex ? Color.accentColor.opacity(0.12) : Color(nsColor: .textBackgroundColor))
+                    RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+                        .fill(isSelected ? LittleSwanTheme.Palette.accentSoft : Color.clear)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(index == selectedValidCommonPhraseIndex ? Color.accentColor.opacity(0.35) : Color(nsColor: .separatorColor))
+                    RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+                        .stroke(
+                            isSelected ? LittleSwanTheme.Palette.accentBorder : Color.clear,
+                            lineWidth: LittleSwanTheme.Stroke.regular
+                        )
                 )
             }
             .buttonStyle(.plain)
             .help("Select phrase \(index + 1) to edit")
             .accessibilityLabel("Phrase \(index + 1): \(commonPhrasePreview(for: index))")
-            .accessibilityValue(index == selectedValidCommonPhraseIndex ? "Selected" : "Not selected")
-            .accessibilityAddTraits(index == selectedValidCommonPhraseIndex ? .isSelected : [])
+            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
 
         }
     }
@@ -477,11 +576,16 @@ struct SettingsView: View {
                             Button("Reset") {
                                 draft.toggleShortcut = .defaultToggleShortcut
                             }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
                         }
 
                         Text(toggleShortcutHelpText)
-                            .font(.caption)
-                            .foregroundStyle(toggleShortcutCanBeSaved ? Color.secondary : Color.red)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(
+                                toggleShortcutCanBeSaved
+                                    ? LittleSwanTheme.Palette.textSecondary
+                                    : LittleSwanTheme.Palette.danger
+                            )
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -499,11 +603,16 @@ struct SettingsView: View {
                             Button("Reset") {
                                 draft.resetWindowShortcut = .defaultResetWindowShortcut
                             }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
                         }
 
                         Text(resetWindowShortcutHelpText)
-                            .font(.caption)
-                            .foregroundStyle(resetWindowShortcutCanBeSaved ? Color.secondary : Color.red)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(
+                                resetWindowShortcutCanBeSaved
+                                    ? LittleSwanTheme.Palette.textSecondary
+                                    : LittleSwanTheme.Palette.danger
+                            )
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -518,7 +627,8 @@ struct SettingsView: View {
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(title)
-                .foregroundStyle(.secondary)
+                .font(LittleSwanTheme.Typography.buttonLabel)
+                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                 .frame(width: 132, alignment: .leading)
 
             content()
@@ -569,12 +679,12 @@ struct SettingsView: View {
             EmptyView()
         case .connected:
             Label("Connected", systemImage: "checkmark.circle.fill")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(.green)
+                .font(LittleSwanTheme.Typography.status)
+                .foregroundStyle(LittleSwanTheme.Palette.success)
         case .failed(let message):
             Label(message, systemImage: "xmark.circle.fill")
-                .font(.caption)
-                .foregroundStyle(.red)
+                .font(LittleSwanTheme.Typography.status)
+                .foregroundStyle(LittleSwanTheme.Palette.danger)
                 .lineLimit(2)
         }
     }

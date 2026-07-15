@@ -14,6 +14,7 @@ final class SettingsWindowController {
         )
 
         window.title = "Little Swan Settings"
+        window.backgroundColor = LittleSwanTheme.Palette.appKitWindowCanvas
         window.isReleasedWhenClosed = false
         window.contentMinSize = NSSize(width: 760, height: 500)
         window.setFrameAutosaveName("LittleSwanSettingsWindow")

@@ -907,6 +907,13 @@ func testSourceDraftCollectionLabelsStayNumbered() {
     precondition(longDraft.displayTitle(fallbackIndex: 2) == "Draft 3")
 }
 
+func testSourceDraftContentStatusIgnoresWhitespace() {
+    precondition(!SourceDraft(text: "").hasContent)
+    precondition(!SourceDraft(text: " \n\t ").hasContent)
+    precondition(SourceDraft(text: "A").hasContent)
+    precondition(SourceDraft(text: " \n Message \n ").hasContent)
+}
+
 func testSourceDraftCollectionDecodingNormalizesLegacyDraftCount() throws {
     let oneDraftJSON = """
     {
@@ -1016,6 +1023,7 @@ testSourceDraftCollectionUpdatesSelectedDraftText()
 testSourceDraftCollectionNormalizesPersistedCollectionsToFive()
 testSourceDraftCollectionPadsSinglePersistedDraftToFive()
 testSourceDraftCollectionLabelsStayNumbered()
+testSourceDraftContentStatusIgnoresWhitespace()
 try testSourceDraftCollectionDecodingNormalizesLegacyDraftCount()
 try testSourceDraftCollectionCodableRoundTripPreservesSelection()
 
