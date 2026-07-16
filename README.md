@@ -23,7 +23,15 @@ Requires macOS 14 Sonoma or later.
 
 ## Install
 
-Download the notarized ZIP from the repository's Releases page, extract it, and move `Little Swan.app` to Applications. A Homebrew Cask will be published after the first signed release is available.
+Install from the project Homebrew tap after the first release is published:
+
+```sh
+brew install --cask boundless-forest/tap/little-swan
+```
+
+You can also download the ZIP from the repository's Releases page, extract it, and move `Little Swan.app` to Applications.
+
+Little Swan is ad-hoc signed and is not notarized by Apple. On first launch, macOS may block the app because the developer cannot be verified. After attempting to open it, go to **System Settings > Privacy & Security**, click **Open Anyway**, and confirm that you want to open Little Swan. Only bypass this warning when the archive came from this repository's official Releases page or Homebrew tap.
 
 ## Development
 
@@ -57,7 +65,7 @@ Little Swan sends source text only to the provider selected by the user. See [PR
 
 ## Distribution
 
-Maintainer instructions for Developer ID signing, notarization, GitHub Releases, and the Homebrew Cask are in [Packaging/README.md](Packaging/README.md).
+Maintainer instructions for ad-hoc releases, optional Developer ID notarization, GitHub Releases, and the Homebrew Cask are in [Packaging/README.md](Packaging/README.md).
 
 ## Copyright and permissions
 

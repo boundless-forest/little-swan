@@ -67,7 +67,7 @@ notarize: archive
 	ditto -c -k --sequesterRsrc --keepParent "$(APP_DIR)" "$(ARCHIVE_PATH)"
 	shasum -a 256 "$(ARCHIVE_PATH)"
 
-release: test notarize
+release: test archive
 
 logo-assets:
 	python3 Design/generate_logo_assets.py

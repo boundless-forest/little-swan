@@ -13,6 +13,7 @@ All notable changes to Little Swan will be documented in this file.
 
 - Writing styles are focused on Spoken English and Formal English, with compatibility migration for previously saved styles.
 - Remote provider endpoints require HTTPS; loopback development endpoints may continue using HTTP.
+- Public release archives now use ad-hoc signing without Apple notarization and document the required first-launch Gatekeeper approval.
 
 ## 0.1.0
 

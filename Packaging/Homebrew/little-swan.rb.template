@@ -15,4 +15,10 @@ cask "little-swan" do
     "~/Library/Application Support/Little Swan",
     "~/Library/Preferences/com.bearwang.littleswan.plist",
   ]
+
+  caveats <<~EOS
+    Little Swan is ad-hoc signed and is not notarized by Apple. If macOS blocks
+    the first launch, open System Settings > Privacy & Security and click
+    "Open Anyway", then confirm that you want to open Little Swan.
+  EOS
 end

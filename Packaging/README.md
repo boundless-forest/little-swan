@@ -2,47 +2,41 @@
 
 Little Swan is a macOS GUI app, so Homebrew distribution uses a Cask rather than a source Formula.
 
-## Prerequisites
+## Distribution model
 
-- A Developer ID Application certificate for `com.bearwang.littleswan`.
-- App Store Connect API credentials with notarization access.
-- A public GitHub repository with Releases enabled.
-- Confirmed redistribution rights for every checked-in design asset.
+Public releases use ad-hoc code signing and are not notarized by Apple. This keeps the release process free of Apple Developer Program credentials, but macOS may block the first launch. Users must attempt to open Little Swan, then approve it in **System Settings > Privacy & Security > Open Anyway**.
 
-The local `make app` target uses ad-hoc signing by default and is suitable only for development. Public artifacts must be Developer ID signed with Hardened Runtime and notarized by Apple.
+The release page, Homebrew Cask, and main README must keep this limitation visible. Do not describe an ad-hoc signed archive as notarized or as coming from an identified Apple developer.
 
 ## Local packaging
 
-Create a native-architecture development archive:
+Create a native-architecture ad-hoc signed archive:
 
 ```sh
 make archive
 ```
 
-Create, sign, notarize, staple, and archive a universal release after storing credentials with `xcrun notarytool store-credentials`:
+Create the universal archive used for a public release:
 
 ```sh
-make notarize \
-  ARCHS="arm64 x86_64" \
-  SIGNING_IDENTITY="Developer ID Application: Example (TEAMID)" \
-  NOTARY_PROFILE="little-swan-notary"
+make release ARCHS="arm64 x86_64"
 ```
 
 The output is `dist/Little-Swan-<version>.zip`. `VERSION` is the source of the release version; `CFBundleShortVersionString` is set while assembling the app.
 
+Verify the ad-hoc signature and bundle version with:
+
+```sh
+make verify-app
+```
+
+Gatekeeper assessment is expected to reject this build because ad-hoc signing does not establish a trusted developer identity.
+
 ## Automated GitHub release
 
-Configure these Actions secrets:
+No signing certificate, keychain password, or App Store Connect secret is required. Update `VERSION` and `CHANGELOG.md`, merge the release change, and push a matching tag such as `v0.1.0`.
 
-- `DEVELOPER_ID_APPLICATION_P12_BASE64`
-- `DEVELOPER_ID_APPLICATION_P12_PASSWORD`
-- `DEVELOPER_ID_APPLICATION_IDENTITY`
-- `RELEASE_KEYCHAIN_PASSWORD`
-- `APP_STORE_CONNECT_API_KEY_P8_BASE64`
-- `APP_STORE_CONNECT_API_KEY_ID`
-- `APP_STORE_CONNECT_ISSUER_ID`
-
-Then update `VERSION`, update `CHANGELOG.md`, merge the release change, and push a matching tag such as `v0.1.0`. The release workflow tests the app, creates a universal binary, signs it with Hardened Runtime, submits it with `notarytool`, staples the ticket, creates the ZIP, renders a checksum-pinned Cask, and publishes both files to GitHub Releases.
+The release workflow tests the app, creates an ad-hoc signed universal archive, renders a checksum-pinned Cask, and publishes both files to GitHub Releases. Its release notes warn that the build is not notarized.
 
 ## Homebrew Cask
 
@@ -52,19 +46,33 @@ Then update `VERSION`, update `CHANGELOG.md`, merge the release change, and push
 Scripts/render-homebrew-cask.sh 0.1.0 dist/Little-Swan-0.1.0.zip
 ```
 
-The result is `dist/little-swan.rb`. Publish that file in a dedicated repository named `boundless-forest/homebrew-tap`, then users can install it with:
+The result is `dist/little-swan.rb`. Publish that file under `Casks/little-swan.rb` in a dedicated public repository named `boundless-forest/homebrew-tap`. Users can then install it with:
 
 ```sh
 brew install --cask boundless-forest/tap/little-swan
 ```
 
-Before publishing the Cask, run `brew style`, `brew audit --new --cask`, install it, launch the app, and uninstall it on both Apple Silicon and Intel macOS 14 or later. Submission to the official `homebrew/cask` repository can follow after the app has a stable release history and meets Homebrew's acceptance criteria.
+The Cask displays the Gatekeeper approval instructions after installation. It must not remove the quarantine attribute automatically; users should make the security decision themselves through macOS System Settings.
+
+Before publishing the Cask, run `brew style`, install it, follow the first-launch approval flow, and uninstall it on both Apple Silicon and Intel macOS 14 or later. The ad-hoc signed build is not eligible for the official `homebrew/cask` repository because it does not pass Gatekeeper without manual intervention.
+
+## Optional notarized release
+
+The `make notarize` target remains available if a future maintainer provides a Developer ID Application identity and a `notarytool` keychain profile:
+
+```sh
+make notarize \
+  ARCHS="arm64 x86_64" \
+  SIGNING_IDENTITY="Developer ID Application: Example (TEAMID)" \
+  NOTARY_PROFILE="little-swan-notary"
+```
 
 ## Release checklist
 
 1. Confirm `swift run LittleSwanSmokeTests` and `swift build -c release` pass.
-2. Confirm the copyright notice, asset provenance, privacy text, and security contact are ready for publication.
+2. Confirm the copyright notice, asset provenance, privacy text, and security contact remain accurate.
 3. Confirm the tag exactly matches `VERSION`.
-4. Verify the final app with `codesign --verify --deep --strict`, `spctl --assess --type execute`, and `xcrun stapler validate`.
-5. Test a clean install from the GitHub release ZIP.
-6. Render, audit, install, launch, and uninstall the Homebrew Cask.
+4. Confirm `make verify-app` accepts the ad-hoc signature and expected bundle version.
+5. Confirm the GitHub Release clearly states that the build is not notarized.
+6. Test a clean install from the GitHub release ZIP and complete the first-launch approval flow.
+7. Render, style, install, launch, and uninstall the Homebrew Cask.
