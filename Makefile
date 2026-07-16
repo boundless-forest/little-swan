@@ -1,17 +1,26 @@
-.PHONY: build test run app logo-assets clean
+.PHONY: build test run app verify-app archive notarize release logo-assets clean
 
 APP_NAME := Little Swan
 EXECUTABLE_NAME := LittleSwan
 MENUBAR_TEMPLATE_ICON := LittleSwanMenuBarTemplate.png
 BUILD_CONFIG ?= release
-EXECUTABLE := .build/$(shell uname -m)-apple-macosx/$(BUILD_CONFIG)/$(EXECUTABLE_NAME)
+APP_VERSION ?= $(shell tr -d '[:space:]' < VERSION)
+BUILD_NUMBER ?= 1
+ARCHS ?=
+ARCH_FLAGS := $(foreach arch,$(ARCHS),--arch $(arch))
+BIN_PATH = $(shell swift build -c $(BUILD_CONFIG) $(ARCH_FLAGS) --show-bin-path)
+SIGNING_IDENTITY ?= -
+NOTARY_PROFILE ?=
 APP_DIR := $(APP_NAME).app
 CONTENTS_DIR := $(APP_DIR)/Contents
 MACOS_DIR := $(CONTENTS_DIR)/MacOS
 RESOURCES_DIR := $(CONTENTS_DIR)/Resources
+DIST_DIR := dist
+ARCHIVE_NAME := Little-Swan-$(APP_VERSION).zip
+ARCHIVE_PATH := $(DIST_DIR)/$(ARCHIVE_NAME)
 
 build:
-	swift build -c $(BUILD_CONFIG)
+	swift build -c $(BUILD_CONFIG) $(ARCH_FLAGS)
 
 test:
 	swift run LittleSwanSmokeTests
@@ -20,17 +29,48 @@ run:
 	swift run $(EXECUTABLE_NAME)
 
 app: build
+	test -n "$(APP_VERSION)"
 	rm -rf "$(APP_DIR)"
 	mkdir -p "$(MACOS_DIR)" "$(RESOURCES_DIR)"
-	cp "$(EXECUTABLE)" "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
+	cp "$(BIN_PATH)/$(EXECUTABLE_NAME)" "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	cp Packaging/Info.plist "$(CONTENTS_DIR)/Info.plist"
 	cp Design/LittleSwan.icns "$(RESOURCES_DIR)/LittleSwan.icns"
 	cp Design/little-swan-menubar-template.png "$(RESOURCES_DIR)/$(MENUBAR_TEMPLATE_ICON)"
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(APP_VERSION)" "$(CONTENTS_DIR)/Info.plist"
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" "$(CONTENTS_DIR)/Info.plist"
 	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
-	codesign --force --sign - "$(APP_DIR)"
+	@if [ "$(SIGNING_IDENTITY)" = "-" ]; then \
+		codesign --force --sign - "$(APP_DIR)"; \
+	else \
+		codesign --force --options runtime --timestamp --sign "$(SIGNING_IDENTITY)" "$(APP_DIR)"; \
+	fi
+
+verify-app:
+	codesign --verify --deep --strict --verbose=2 "$(APP_DIR)"
+	/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$(CONTENTS_DIR)/Info.plist" | grep -Fx "$(APP_VERSION)"
+
+archive: app verify-app
+	mkdir -p "$(DIST_DIR)"
+	rm -f "$(ARCHIVE_PATH)"
+	ditto -c -k --sequesterRsrc --keepParent "$(APP_DIR)" "$(ARCHIVE_PATH)"
+	shasum -a 256 "$(ARCHIVE_PATH)"
+
+notarize: archive
+	test "$(SIGNING_IDENTITY)" != "-"
+	test -n "$(NOTARY_PROFILE)"
+	xcrun notarytool submit "$(ARCHIVE_PATH)" --keychain-profile "$(NOTARY_PROFILE)" --wait
+	xcrun stapler staple "$(APP_DIR)"
+	xcrun stapler validate "$(APP_DIR)"
+	codesign --verify --deep --strict --verbose=2 "$(APP_DIR)"
+	spctl --assess --type execute --verbose=4 "$(APP_DIR)"
+	rm -f "$(ARCHIVE_PATH)"
+	ditto -c -k --sequesterRsrc --keepParent "$(APP_DIR)" "$(ARCHIVE_PATH)"
+	shasum -a 256 "$(ARCHIVE_PATH)"
+
+release: test notarize
 
 logo-assets:
 	python3 Design/generate_logo_assets.py
 
 clean:
-	rm -rf .build "$(APP_DIR)"
+	rm -rf .build "$(APP_DIR)" "$(DIST_DIR)"

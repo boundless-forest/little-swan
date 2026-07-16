@@ -123,7 +123,6 @@ struct SettingsView: View {
 
     private func tabButton(_ tab: SettingsTab) -> some View {
         let isSelected = selectedTab == tab
-        let isFocused = focusedSettingsTab == tab
         let isHovered = hoveredSettingsTab == tab
 
         return Button {
@@ -155,13 +154,6 @@ struct SettingsView: View {
                         isSelected
                             ? LittleSwanTheme.Palette.accentSoft
                             : (isHovered ? LittleSwanTheme.Palette.surfaceSubtle : Color.clear)
-                    )
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
-                    .stroke(
-                        isFocused ? LittleSwanTheme.Palette.accent : Color.clear,
-                        lineWidth: LittleSwanTheme.Stroke.focus
                     )
             }
         }
@@ -660,10 +652,7 @@ struct SettingsView: View {
     }
 
     private var isProviderBaseURLValid: Bool {
-        let value = draft.provider.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let components = URLComponents(string: value) else { return false }
-        return ["http", "https"].contains(components.scheme?.lowercased() ?? "")
-            && components.host != nil
+        ProviderEndpoint.baseURL(from: draft.provider.baseURL) != nil
     }
 
     private var canTestProviderConnection: Bool {
@@ -790,7 +779,7 @@ struct SettingsView: View {
             debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
             realtimeTranslationEnabled: true,
             copyGeneratedResultToClipboard: true,
-            defaultWritingStyle: .natural,
+            defaultWritingStyle: .spoken,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,
             resetWindowShortcut: .defaultResetWindowShortcut,

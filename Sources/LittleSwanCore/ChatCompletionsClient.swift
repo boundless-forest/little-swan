@@ -26,6 +26,28 @@ public enum ChatCompletionsClientError: LocalizedError, Equatable {
     }
 }
 
+public enum ProviderEndpoint {
+    public static func baseURL(from value: String) -> URL? {
+        guard
+            let components = URLComponents(
+                string: value.trimmingCharacters(in: .whitespacesAndNewlines)
+            ),
+            let scheme = components.scheme?.lowercased(),
+            let host = components.host?.trimmingCharacters(in: CharacterSet(charactersIn: "[]")).lowercased(),
+            let url = components.url
+        else {
+            return nil
+        }
+
+        if scheme == "https" {
+            return url
+        }
+
+        let loopbackHosts = ["localhost", "127.0.0.1", "::1"]
+        return scheme == "http" && loopbackHosts.contains(host) ? url : nil
+    }
+}
+
 /// Calls providers that implement the OpenAI-compatible chat completions API.
 public final class ChatCompletionsClient: Sendable {
     private let session: URLSession
@@ -88,12 +110,7 @@ public final class ChatCompletionsClient: Sendable {
         }
 
         let baseURLValue = configuration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard
-            let components = URLComponents(string: baseURLValue),
-            ["http", "https"].contains(components.scheme?.lowercased() ?? ""),
-            components.host != nil,
-            let baseURL = components.url
-        else {
+        guard let baseURL = ProviderEndpoint.baseURL(from: baseURLValue) else {
             throw ChatCompletionsClientError.invalidBaseURL(baseURLValue, provider: providerName)
         }
 

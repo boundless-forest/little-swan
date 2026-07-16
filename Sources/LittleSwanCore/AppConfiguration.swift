@@ -18,7 +18,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         realtimeTranslationEnabled: Bool = true,
         copyGeneratedResultToClipboard: Bool = true,
-        defaultWritingStyle: WritingStyle = .natural,
+        defaultWritingStyle: WritingStyle = .spoken,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
         resetWindowShortcut: KeyboardShortcutConfiguration = .defaultResetWindowShortcut,
@@ -86,7 +86,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             Bool.self,
             forKey: .copyGeneratedResultToClipboard
         ) ?? true
-        defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .natural
+        defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .spoken
         toggleShortcut = try container.decodeIfPresent(
             KeyboardShortcutConfiguration.self,
             forKey: .toggleShortcut

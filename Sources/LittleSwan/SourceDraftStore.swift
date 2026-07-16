@@ -16,6 +16,12 @@ final class SourceDraftStore: ObservableObject {
 
         if !Self.draftsExist(at: fileURL) {
             save()
+        } else {
+            do {
+                try Self.secureExistingStorage(at: fileURL)
+            } catch {
+                lastError = error.localizedDescription
+            }
         }
     }
 
@@ -51,12 +57,20 @@ final class SourceDraftStore: ObservableObject {
                 at: directoryURL,
                 withIntermediateDirectories: true
             )
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o700],
+                ofItemAtPath: directoryURL.path
+            )
 
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             encoder.dateEncodingStrategy = .iso8601
             let data = try encoder.encode(collection)
             try data.write(to: fileURL, options: [.atomic])
+            try FileManager.default.setAttributes(
+                [.posixPermissions: 0o600],
+                ofItemAtPath: fileURL.path
+            )
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -85,6 +99,17 @@ final class SourceDraftStore: ObservableObject {
 
     private static func draftsExist(at fileURL: URL) -> Bool {
         FileManager.default.fileExists(atPath: fileURL.path)
+    }
+
+    private static func secureExistingStorage(at fileURL: URL) throws {
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o700],
+            ofItemAtPath: fileURL.deletingLastPathComponent().path
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o600],
+            ofItemAtPath: fileURL.path
+        )
     }
 
     private static func defaultDraftsURL() -> URL {

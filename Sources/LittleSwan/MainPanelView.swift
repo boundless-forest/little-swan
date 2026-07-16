@@ -101,7 +101,7 @@ struct MainPanelView: View {
                 .help("Clear current draft")
 
                 Toggle(
-                    "Auto",
+                    "Real-time",
                     isOn: Binding(
                         get: { viewModel.isRealtimeTranslationEnabled },
                         set: { viewModel.setRealtimeTranslationEnabled($0) }
@@ -111,7 +111,7 @@ struct MainPanelView: View {
                 .controlSize(.small)
                 .fixedSize()
                 .help("Translate automatically while typing")
-                .accessibilityLabel("Auto translate")
+                .accessibilityLabel("Real-time translation")
                 .accessibilityHint("Automatically refreshes the English result after you stop typing")
             }
             .font(LittleSwanTheme.Typography.buttonLabel)

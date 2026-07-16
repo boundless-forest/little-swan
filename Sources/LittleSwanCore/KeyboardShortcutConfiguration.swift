@@ -6,12 +6,12 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let optionModifierFlag: UInt = 1 << 19
     public static let commandModifierFlag: UInt = 1 << 20
 
-    public static let lKeyCode: UInt16 = 37
+    public static let aKeyCode: UInt16 = 0
     public static let zeroKeyCode: UInt16 = 29
     public static let spaceKeyCode: UInt16 = 49
 
     public static let defaultToggleShortcut = KeyboardShortcutConfiguration(
-        keyCode: lKeyCode,
+        keyCode: aKeyCode,
         modifierFlags: controlModifierFlag
     )
 
