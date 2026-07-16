@@ -89,6 +89,8 @@ func testWritingStylesProvideDetailedDistinctGuidance() {
     let instructions = WritingStyle.allCases.map(\.instruction)
 
     precondition(WritingStyle.allCases == [.spoken, .formal])
+    precondition(WritingStyle.spoken.label == "Spoken")
+    precondition(WritingStyle.formal.label == "Formal")
     precondition(Set(instructions).count == WritingStyle.allCases.count)
     precondition(instructions.allSatisfy { $0.split(separator: "\n").count >= 5 })
     precondition(WritingStyle.spoken.instruction.contains("comfortably say aloud"))

@@ -208,12 +208,15 @@ struct LittleSwanSurfaceModifier: ViewModifier {
 }
 
 struct LittleSwanIconButtonStyle: ButtonStyle {
+    var feedbackColor: Color?
+
     func makeBody(configuration: Configuration) -> Body {
-        Body(configuration: configuration)
+        Body(configuration: configuration, feedbackColor: feedbackColor)
     }
 
     struct Body: View {
         let configuration: Configuration
+        let feedbackColor: Color?
 
         @Environment(\.isEnabled) private var isEnabled
         @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -236,6 +239,9 @@ struct LittleSwanIconButtonStyle: ButtonStyle {
         }
 
         private var foregroundColor: Color {
+            if let feedbackColor {
+                return feedbackColor
+            }
             if configuration.isPressed {
                 return LittleSwanTheme.Palette.accentPressed
             }
@@ -247,6 +253,9 @@ struct LittleSwanIconButtonStyle: ButtonStyle {
 
         private var backgroundColor: Color {
             guard isEnabled else { return .clear }
+            if let feedbackColor {
+                return feedbackColor.opacity(isHovered ? 0.16 : 0.10)
+            }
             if configuration.isPressed {
                 return LittleSwanTheme.Palette.accentSoft
             }

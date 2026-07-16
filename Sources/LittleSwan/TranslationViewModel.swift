@@ -17,8 +17,15 @@ final class TranslationViewModel: ObservableObject {
     @Published var outputText = ""
     @Published var selectedStyle: WritingStyle {
         didSet {
+            guard oldValue != selectedStyle else { return }
+
+            let shouldUpdateImmediately = !outputText.isEmpty || isLoading
             updateOutputFreshness()
-            scheduleTranslation()
+            if shouldUpdateImmediately {
+                translateNow(input: inputText, style: selectedStyle)
+            } else {
+                scheduleTranslation()
+            }
         }
     }
 

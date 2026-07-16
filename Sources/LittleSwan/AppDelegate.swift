@@ -28,7 +28,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sourceDraftStore: sourceDraftStore
         )
         panelController = FloatingPanelController(
-            rootView: MainPanelView(viewModel: viewModel),
+            rootView: MainPanelView(
+                viewModel: viewModel,
+                openSettings: { [weak self] in self?.showSettings() }
+            ),
             titlebarAccessoryView: MainPanelTitlebarControlsView(
                 viewModel: viewModel,
                 resetMainWindow: { [weak self] in self?.panelController?.resetPlacementAndSize() },

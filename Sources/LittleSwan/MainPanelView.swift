@@ -4,13 +4,20 @@ import SwiftUI
 struct MainPanelView: View {
     @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var viewModel: TranslationViewModel
+    let openSettings: () -> Void
+
     @FocusState private var isInputFocused: Bool
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
     @State private var isCommonPhrasePickerPresented = false
+    @State private var inputGuidanceMessage: String?
+    @State private var outputGuidanceMessage: String?
+    @State private var inputGuidanceTask: Task<Void, Never>?
+    @State private var outputGuidanceTask: Task<Void, Never>?
 
     private let placeholderTopPadding: CGFloat = 2
     private let placeholderLeadingPadding: CGFloat = 8
+    private let toolbarItemSpacing: CGFloat = 7
     // TextEditor is backed by NSTextView, whose text container adds this default horizontal inset.
     private let textEditorLineFragmentPadding: CGFloat = 5
 
@@ -27,9 +34,24 @@ struct MainPanelView: View {
             }
             .onDisappear {
                 copyFeedbackTask?.cancel()
+                inputGuidanceTask?.cancel()
+                outputGuidanceTask?.cancel()
             }
             .onChange(of: viewModel.copyFeedbackTrigger) { _, _ in
                 showCopyFeedback()
+            }
+            .onChange(of: viewModel.inputText) { _, newValue in
+                if !newValue.isEmpty {
+                    inputGuidanceMessage = nil
+                }
+            }
+            .onChange(of: viewModel.outputText) { _, newValue in
+                if !newValue.isEmpty {
+                    outputGuidanceMessage = nil
+                }
+            }
+            .onChange(of: viewModel.selectedSourceDraftID) { _, _ in
+                inputGuidanceMessage = nil
             }
     }
 
@@ -45,7 +67,7 @@ struct MainPanelView: View {
 
     private var inputEditor: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 7) {
+            HStack(spacing: toolbarItemSpacing) {
                 Text("Source")
                     .font(LittleSwanTheme.Typography.sectionLabel)
                     .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
@@ -73,8 +95,13 @@ struct MainPanelView: View {
                 commonPhrasesMenu
 
                 Button {
-                    viewModel.polishInput()
                     isInputFocused = true
+                    guard !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        showInputGuidance("Type something before polishing.")
+                        return
+                    }
+
+                    viewModel.polishInput()
                 } label: {
                     if viewModel.isPolishingInput {
                         ProgressView()
@@ -86,18 +113,22 @@ struct MainPanelView: View {
                 .labelStyle(.iconOnly)
                 .buttonStyle(LittleSwanIconButtonStyle())
                 .controlSize(.small)
-                .disabled(viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isPolishingInput)
+                .disabled(viewModel.isPolishingInput)
                 .help("Polish input text")
 
                 Button {
-                    viewModel.clearInput()
                     isInputFocused = true
+                    guard !viewModel.inputText.isEmpty else {
+                        showInputGuidance("Source is already empty.")
+                        return
+                    }
+
+                    viewModel.clearInput()
                 } label: {
                     Label("Clear source", systemImage: "xmark.circle")
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(LittleSwanIconButtonStyle())
-                .disabled(viewModel.inputText.isEmpty)
                 .help("Clear current draft")
 
                 Toggle(
@@ -136,12 +167,23 @@ struct MainPanelView: View {
                 if let polishAnimationFrame = viewModel.polishAnimationFrame {
                     polishReviewOverlay(polishAnimationFrame)
                 } else if viewModel.inputText.isEmpty {
-                    Text("Type in any language")
+                    HStack(spacing: 5) {
+                        if inputGuidanceMessage != nil {
+                            Image(systemName: "info.circle.fill")
+                        }
+
+                        Text(inputGuidanceMessage ?? "Type in any language")
+                    }
                         .font(LittleSwanTheme.Typography.editorBody)
-                        .foregroundStyle(LittleSwanTheme.Palette.textTertiary)
+                        .foregroundStyle(
+                            inputGuidanceMessage == nil
+                                ? LittleSwanTheme.Palette.textTertiary
+                                : LittleSwanTheme.Palette.accent
+                        )
                         .padding(.top, placeholderTopPadding)
                         .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
                         .allowsHitTesting(false)
+                        .transition(.opacity)
                 }
             }
         }
@@ -222,36 +264,32 @@ struct MainPanelView: View {
         .labelStyle(.iconOnly)
         .buttonStyle(LittleSwanIconButtonStyle())
         .controlSize(.small)
-        .disabled(viewModel.commonPhrases.isEmpty)
         .help(
             viewModel.commonPhrases.isEmpty ? "No common phrases configured" : "Insert common phrase"
         )
         .popover(isPresented: $isCommonPhrasePickerPresented, arrowEdge: .top) {
-            CommonPhrasePicker(phrases: viewModel.commonPhrases) { phrase in
-                viewModel.insertCommonPhrase(phrase)
-                isCommonPhrasePickerPresented = false
-                isInputFocused = true
-            }
+            CommonPhrasePicker(
+                phrases: viewModel.commonPhrases,
+                onSelect: { phrase in
+                    viewModel.insertCommonPhrase(phrase)
+                    isCommonPhrasePickerPresented = false
+                    isInputFocused = true
+                },
+                openSettings: {
+                    isCommonPhrasePickerPresented = false
+                    openSettings()
+                }
+            )
         }
     }
 
     private var outputView: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: toolbarItemSpacing) {
                 Text("English result")
                     .font(LittleSwanTheme.Typography.sectionLabel)
                     .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
-
-                Text("Editable")
-                    .font(LittleSwanTheme.Typography.chip)
-                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(LittleSwanTheme.Palette.surfaceRaised, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(LittleSwanTheme.Palette.border, lineWidth: LittleSwanTheme.Stroke.regular)
-                    }
+                    .fixedSize()
 
                 Picker("Writing style", selection: $viewModel.selectedStyle) {
                     ForEach(WritingStyle.allCases) { style in
@@ -261,66 +299,64 @@ struct MainPanelView: View {
                 .pickerStyle(.segmented)
                 .controlSize(.small)
                 .labelsHidden()
-                .frame(minWidth: 180, maxWidth: 360)
-                .layoutPriority(1)
+                .frame(width: 112)
                 .accessibilityLabel("Writing style")
                 .accessibilityValue(viewModel.selectedStyle.label)
 
                 Spacer(minLength: 0)
 
-                if isCopyFeedbackVisible {
-                    Label("Copied", systemImage: "checkmark.circle.fill")
-                        .font(LittleSwanTheme.Typography.status)
-                        .foregroundStyle(LittleSwanTheme.Palette.success)
-                        .fixedSize()
-                } else if viewModel.isOutputStale {
-                    Label("Out of date", systemImage: "clock.arrow.circlepath")
-                        .font(LittleSwanTheme.Typography.status)
-                        .foregroundStyle(LittleSwanTheme.Palette.warning)
-                        .fixedSize()
-                }
-
-                HStack(spacing: 6) {
+                HStack(spacing: toolbarItemSpacing) {
                     Button {
+                        guard !viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                            isInputFocused = true
+                            showInputGuidance("Type something to generate an English result.")
+                            return
+                        }
+
                         viewModel.generateNow()
                     } label: {
-                        if viewModel.isLoading {
-                            HStack(spacing: 5) {
-                                ProgressView()
-                                    .controlSize(.small)
-                                    .tint(LittleSwanTheme.Palette.onAccent)
-                                    .environment(\.colorScheme, contrastingColorScheme)
-                                Text("Generating…")
-                                    .foregroundStyle(LittleSwanTheme.Palette.onAccent)
-                            }
-                        } else {
-                            Label(viewModel.isOutputStale ? "Update" : "Generate", systemImage: "sparkles")
-                                .foregroundStyle(LittleSwanTheme.Palette.onAccent)
-                        }
+                        GenerateActionLabel(
+                            isLoading: viewModel.isLoading,
+                            isUpdating: !viewModel.outputText.isEmpty,
+                            shortcut: viewModel.generateTranslationShortcut.displayString,
+                            contrastingColorScheme: contrastingColorScheme
+                        )
                     }
-                    .buttonStyle(.borderedProminent)
-                    .font(LittleSwanTheme.Typography.buttonLabel)
-                    .tint(LittleSwanTheme.Palette.accent)
-                    .controlSize(.small)
-                    .disabled(
-                        viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            || viewModel.isLoading
-                    )
+                    .buttonStyle(GenerateActionButtonStyle())
+                    .disabled(viewModel.isLoading)
                     .configuredKeyboardShortcut(viewModel.generateTranslationShortcut)
                     .help("Generate English result (\(viewModel.generateTranslationShortcut.displayString))")
+                    .accessibilityLabel(viewModel.isOutputStale ? "Update" : "Generate")
+                    .accessibilityHint(
+                        "Generate English result. Shortcut: \(viewModel.generateTranslationShortcut.displayString)"
+                    )
+                    .fixedSize()
 
                     Button {
+                        guard !viewModel.outputText.isEmpty else {
+                            showOutputGuidance("Generate a result before copying.")
+                            return
+                        }
+
                         viewModel.copyOutput()
                     } label: {
                         Label(
                             isCopyFeedbackVisible ? "Copied" : "Copy",
                             systemImage: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc"
                         )
+                        .contentTransition(.symbolEffect(.replace))
                     }
                     .labelStyle(.iconOnly)
-                    .buttonStyle(LittleSwanIconButtonStyle())
-                    .disabled(viewModel.outputText.isEmpty)
-                    .help("Copy English result")
+                    .buttonStyle(
+                        LittleSwanIconButtonStyle(
+                            feedbackColor: isCopyFeedbackVisible
+                                ? LittleSwanTheme.Palette.success
+                                : nil
+                        )
+                    )
+                    .controlSize(.small)
+                    .help(isCopyFeedbackVisible ? "Copied" : "Copy English result")
+                    .accessibilityLabel(isCopyFeedbackVisible ? "Copied" : "Copy English result")
                 }
             }
             .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
@@ -365,12 +401,23 @@ struct MainPanelView: View {
                     .padding(2)
 
                 if viewModel.outputText.isEmpty {
-                    Text("Your English version will appear here")
+                    HStack(spacing: 5) {
+                        if outputGuidanceMessage != nil {
+                            Image(systemName: "info.circle.fill")
+                        }
+
+                        Text(outputGuidanceMessage ?? "Your English version will appear here")
+                    }
                         .font(LittleSwanTheme.Typography.editorBody)
-                        .foregroundStyle(LittleSwanTheme.Palette.textTertiary)
+                        .foregroundStyle(
+                            outputGuidanceMessage == nil
+                                ? LittleSwanTheme.Palette.textTertiary
+                                : LittleSwanTheme.Palette.accent
+                        )
                         .padding(.top, placeholderTopPadding)
                         .padding(.leading, placeholderLeadingPadding + textEditorLineFragmentPadding)
                         .allowsHitTesting(false)
+                        .transition(.opacity)
                 }
             }
         }
@@ -399,6 +446,121 @@ struct MainPanelView: View {
         }
     }
 
+    private func showInputGuidance(_ message: String) {
+        withAnimation(.easeOut(duration: 0.12)) {
+            inputGuidanceMessage = message
+        }
+
+        inputGuidanceTask?.cancel()
+        inputGuidanceTask = Task {
+            try? await Task.sleep(for: .seconds(2.4))
+
+            await MainActor.run {
+                guard inputGuidanceMessage == message else { return }
+                withAnimation(.easeIn(duration: 0.2)) {
+                    inputGuidanceMessage = nil
+                }
+            }
+        }
+    }
+
+    private func showOutputGuidance(_ message: String) {
+        withAnimation(.easeOut(duration: 0.12)) {
+            outputGuidanceMessage = message
+        }
+
+        outputGuidanceTask?.cancel()
+        outputGuidanceTask = Task {
+            try? await Task.sleep(for: .seconds(2.4))
+
+            await MainActor.run {
+                guard outputGuidanceMessage == message else { return }
+                withAnimation(.easeIn(duration: 0.2)) {
+                    outputGuidanceMessage = nil
+                }
+            }
+        }
+    }
+
+}
+
+private struct GenerateActionLabel: View {
+    let isLoading: Bool
+    let isUpdating: Bool
+    let shortcut: String
+    let contrastingColorScheme: ColorScheme
+
+    var body: some View {
+        Group {
+            if isLoading {
+                HStack(spacing: 5) {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(LittleSwanTheme.Palette.onAccent)
+                        .environment(\.colorScheme, contrastingColorScheme)
+
+                    Text(isUpdating ? "Updating…" : "Generating…")
+                        .font(LittleSwanTheme.Typography.buttonLabel)
+                }
+                .foregroundStyle(LittleSwanTheme.Palette.onAccent)
+                .frame(width: 88, height: 22)
+                .background(LittleSwanTheme.Palette.accent)
+            } else {
+                HStack(spacing: 0) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(LittleSwanTheme.Palette.onAccent)
+                        .frame(width: 30, height: 22)
+                        .background(LittleSwanTheme.Palette.accent)
+
+                    Text(shortcut)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(LittleSwanTheme.Palette.accent)
+                        .frame(width: 58, height: 22)
+                        .background(LittleSwanTheme.Palette.accentSoft)
+                }
+            }
+        }
+        .clipShape(
+            RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact, style: .continuous)
+                .stroke(
+                    LittleSwanTheme.Palette.accentBorder,
+                    lineWidth: LittleSwanTheme.Stroke.regular
+                )
+        }
+        .contentTransition(.opacity)
+    }
+}
+
+private struct GenerateActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> Body {
+        Body(configuration: configuration)
+    }
+
+    fileprivate struct Body: View {
+        let configuration: Configuration
+
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+        @State private var isHovered = false
+
+        var body: some View {
+            configuration.label
+                .brightness(isHovered && isEnabled ? 0.035 : 0)
+                .scaleEffect(configuration.isPressed ? 0.98 : 1)
+                .opacity(isEnabled ? 1 : 0.38)
+                .contentShape(Rectangle())
+                .onHover { isHovered = $0 }
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.1), value: isHovered)
+                .animation(
+                    reduceMotion ? nil : .easeOut(duration: 0.08),
+                    value: configuration.isPressed
+                )
+        }
+    }
 }
 
 private extension View {
@@ -429,30 +591,55 @@ private extension EventModifiers {
 private struct CommonPhrasePicker: View {
     let phrases: [String]
     let onSelect: (String) -> Void
+    let openSettings: () -> Void
 
     @State private var hoveredPhrase: String?
 
+    @ViewBuilder
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(phrases, id: \.self) { phrase in
-                        phraseButton(phrase)
-                    }
-                }
-                .padding(6)
+        if phrases.isEmpty {
+            VStack(spacing: 10) {
+                Image(systemName: "text.badge.plus")
+                    .font(.system(size: 24, weight: .regular))
+                    .foregroundStyle(LittleSwanTheme.Palette.accent)
+
+                Text("No common phrases")
+                    .font(LittleSwanTheme.Typography.controlStrong)
+                    .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
+
+                Text("Add reusable phrases in Settings.")
+                    .font(LittleSwanTheme.Typography.helper)
+                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+
+                Button("Open Settings", action: openSettings)
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .tint(LittleSwanTheme.Palette.accent)
             }
-            .frame(width: 260, height: 220)
+            .frame(width: 280, height: 160)
+            .background(LittleSwanTheme.Palette.windowCanvas)
+        } else {
+            HStack(alignment: .top, spacing: 0) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(phrases, id: \.self) { phrase in
+                            phraseButton(phrase)
+                        }
+                    }
+                    .padding(6)
+                }
+                .frame(width: 260, height: 220)
 
-            Divider()
-                .overlay(LittleSwanTheme.Palette.divider)
+                Divider()
+                    .overlay(LittleSwanTheme.Palette.divider)
 
-            phrasePreview
-                .frame(width: 320, height: 220)
-                .background(LittleSwanTheme.Palette.surfaceSubtle)
+                phrasePreview
+                    .frame(width: 320, height: 220)
+                    .background(LittleSwanTheme.Palette.surfaceSubtle)
+            }
+            .background(LittleSwanTheme.Palette.windowCanvas)
+            .tint(LittleSwanTheme.Palette.accent)
         }
-        .background(LittleSwanTheme.Palette.windowCanvas)
-        .tint(LittleSwanTheme.Palette.accent)
     }
 
     private func phraseButton(_ phrase: String) -> some View {

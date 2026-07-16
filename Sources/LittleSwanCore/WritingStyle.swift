@@ -31,9 +31,9 @@ public enum WritingStyle: String, CaseIterable, Codable, Identifiable, Sendable 
     public var label: String {
         switch self {
         case .spoken:
-            "Spoken English"
+            "Spoken"
         case .formal:
-            "Formal English"
+            "Formal"
         }
     }
 
