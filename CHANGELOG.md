@@ -4,6 +4,14 @@ All notable changes to Little Swan will be documented in this file.
 
 ## Unreleased
 
+## 0.1.2 - 2026-07-16
+
+### Changed
+
+- Refined the app icon with production vector artwork based on the approved precision-origami Little Swan design.
+- Added a dedicated monochrome menu bar optical master that remains legible across light and dark appearances.
+- Replaced screenshot extraction and Pillow with a deterministic Swift/AppKit pipeline that generates PNG and ICNS assets from checked-in SVG masters.
+
 ## 0.1.1 - 2026-07-16
 
 ### Added

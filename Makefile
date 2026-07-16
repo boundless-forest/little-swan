@@ -78,7 +78,7 @@ notarize: archive
 release: test archive
 
 logo-assets:
-	python3 Design/generate_logo_assets.py
+	swift Design/generate_logo_assets.swift
 
 clean:
 	rm -rf .build "$(APP_DIR)" "$(DIST_DIR)"

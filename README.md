@@ -43,7 +43,7 @@ swift run LittleSwan
 
 The project requires Swift 6.0 or later. See [CONTRIBUTING.md](CONTRIBUTING.md) for the current development and external-contribution policy.
 
-Regenerate the app icon, `.icns`, and menu bar template icon from the checked-in Google Stitch reference:
+Regenerate the app icon, `.icns`, and menu bar template icon from the checked-in SVG masters:
 
 ```sh
 make logo-assets
