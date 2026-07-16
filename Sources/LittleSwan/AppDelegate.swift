@@ -7,6 +7,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let statusBarIconSize = NSSize(width: 18, height: 18)
     private static let statusBarTemplateIconName = "LittleSwanMenuBarTemplate"
+    private static let statusItemAutosaveName = "LittleSwanStatusItem.v2"
 
     private var statusItem: NSStatusItem?
     private var panelController: FloatingPanelController?
@@ -85,6 +86,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // Use an explicit, versioned identity so macOS does not reuse a corrupted
+        // automatically generated Control Center record such as `Item-0`.
+        item.autosaveName = Self.statusItemAutosaveName
         let image = statusBarIcon()
 
         item.button?.image = image

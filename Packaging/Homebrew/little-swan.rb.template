@@ -13,6 +13,7 @@ cask "little-swan" do
 
   zap trash: [
     "~/Library/Application Support/Little Swan",
+    "~/Library/Preferences/com.bearwang.littleswan.app.plist",
     "~/Library/Preferences/com.bearwang.littleswan.plist",
   ]
 
