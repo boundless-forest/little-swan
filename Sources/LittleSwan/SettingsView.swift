@@ -21,7 +21,6 @@ struct SettingsView: View {
     @State private var selectedCommonPhraseIndex = 0
     @State private var hoveredSettingsTab: SettingsTab?
     @FocusState private var isCommonPhraseEditorFocused: Bool
-    @FocusState private var focusedSettingsTab: SettingsTab?
 
     init(configStore: ConfigStore) {
         self.configStore = configStore
@@ -84,9 +83,6 @@ struct SettingsView: View {
             connectionStatus = .idle
             scheduleAutoSave()
         }
-        .onChange(of: selectedTab) { _, newTab in
-            focusedSettingsTab = newTab
-        }
         .onDisappear {
             saveFeedbackTask?.cancel()
             autoSaveTask?.cancel()
@@ -135,7 +131,6 @@ struct SettingsView: View {
         let isHovered = hoveredSettingsTab == tab
 
         return Button {
-            focusedSettingsTab = tab
             selectedTab = tab
         } label: {
             HStack(spacing: 9) {
@@ -167,7 +162,7 @@ struct SettingsView: View {
             }
         }
         .buttonStyle(.plain)
-        .focused($focusedSettingsTab, equals: tab)
+        .focusEffectDisabled()
         .onHover { isHovering in
             if isHovering {
                 hoveredSettingsTab = tab
