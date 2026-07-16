@@ -18,14 +18,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var cancellables = Set<AnyCancellable>()
     private let configStore = ConfigStore()
     private let sourceDraftStore = SourceDraftStore()
+    private var externalWindowTracker: ExternalWindowTracker?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         configureApplicationMenu()
 
+        let windowTracker = ExternalWindowTracker()
+        externalWindowTracker = windowTracker
         let viewModel = TranslationViewModel(
             configStore: configStore,
-            sourceDraftStore: sourceDraftStore
+            sourceDraftStore: sourceDraftStore,
+            contextCaptureService: ScreenContextCaptureService(tracker: windowTracker)
         )
         panelController = FloatingPanelController(
             rootView: MainPanelView(

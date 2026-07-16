@@ -641,6 +641,33 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                settingsRow("Polish with context") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            KeyboardShortcutRecorder(
+                                shortcut: $draft.polishInputShortcut,
+                                accessibilityLabel: "Polish with context shortcut",
+                                accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
+                            )
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.polishInputShortcut = .defaultPolishInputShortcut
+                            }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
+                        }
+
+                        Text(polishInputShortcutHelpText)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(
+                                polishInputShortcutCanBeSaved
+                                    ? LittleSwanTheme.Palette.textSecondary
+                                    : LittleSwanTheme.Palette.danger
+                            )
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             .padding(.vertical, 4)
         }
@@ -923,6 +950,7 @@ struct SettingsView: View {
             toggleShortcut: .defaultToggleShortcut,
             resetWindowShortcut: .defaultResetWindowShortcut,
             generateTranslationShortcut: .defaultGenerateTranslationShortcut,
+            polishInputShortcut: .defaultPolishInputShortcut,
             commonPhrases: .default
         )
     }
@@ -957,10 +985,23 @@ struct SettingsView: View {
         }
     }
 
+    private var polishInputShortcutHelpText: String {
+        if shortcutsConflict {
+            "Shortcut was not saved. Choose a different shortcut for each action."
+        } else if draft.polishInputShortcut.isValid {
+            "Captures the previously active window once and uses its visible text to Polish the current Source."
+        } else {
+            "Shortcut was not saved. Include at least one modifier key."
+        }
+    }
+
     private var shortcutsConflict: Bool {
         draft.toggleShortcut.conflicts(with: draft.resetWindowShortcut)
             || draft.toggleShortcut.conflicts(with: draft.generateTranslationShortcut)
+            || draft.toggleShortcut.conflicts(with: draft.polishInputShortcut)
             || draft.resetWindowShortcut.conflicts(with: draft.generateTranslationShortcut)
+            || draft.resetWindowShortcut.conflicts(with: draft.polishInputShortcut)
+            || draft.generateTranslationShortcut.conflicts(with: draft.polishInputShortcut)
     }
 
     private var toggleShortcutCanBeSaved: Bool {
@@ -973,6 +1014,10 @@ struct SettingsView: View {
 
     private var generateTranslationShortcutCanBeSaved: Bool {
         draft.generateTranslationShortcut.isValid && !shortcutsConflict
+    }
+
+    private var polishInputShortcutCanBeSaved: Bool {
+        draft.polishInputShortcut.isValid && !shortcutsConflict
     }
 
     private func scheduleAutoSave() {
@@ -999,13 +1044,20 @@ struct SettingsView: View {
         if !nextConfiguration.generateTranslationShortcut.isValid {
             nextConfiguration.generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
         }
+        if !nextConfiguration.polishInputShortcut.isValid {
+            nextConfiguration.polishInputShortcut = configStore.configuration.polishInputShortcut
+        }
         let hasShortcutConflict = nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.resetWindowShortcut)
             || nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
+            || nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
             || nextConfiguration.resetWindowShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
+            || nextConfiguration.resetWindowShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
+            || nextConfiguration.generateTranslationShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
         if hasShortcutConflict {
             nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
             nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
             nextConfiguration.generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
+            nextConfiguration.polishInputShortcut = configStore.configuration.polishInputShortcut
         }
         configStore.configuration = nextConfiguration
         configStore.save()

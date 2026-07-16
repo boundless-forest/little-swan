@@ -41,10 +41,15 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var isOutputStale = false
     @Published private(set) var copyFeedbackTrigger = 0
     @Published private(set) var generateTranslationShortcut: KeyboardShortcutConfiguration
+    @Published private(set) var polishInputShortcut: KeyboardShortcutConfiguration
+    @Published private(set) var polishContext: ScreenContext?
+    @Published private(set) var polishStatusMessage: String?
+    @Published private(set) var polishNeedsScreenRecordingPermission = false
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
-    private let client: ChatCompletionsClient
+    private let contextCaptureService: any ScreenContextCapturing
+    private let client: any ChatCompletionsServing
     private var translationTask: Task<Void, Never>?
     private var inputPolishTask: Task<Void, Never>?
     private var inputPolishRequestID = UUID()
@@ -56,10 +61,12 @@ final class TranslationViewModel: ObservableObject {
     init(
         configStore: ConfigStore,
         sourceDraftStore: SourceDraftStore? = nil,
-        client: ChatCompletionsClient = ChatCompletionsClient()
+        contextCaptureService: any ScreenContextCapturing,
+        client: any ChatCompletionsServing = ChatCompletionsClient()
     ) {
         self.configStore = configStore
         self.sourceDraftStore = sourceDraftStore
+        self.contextCaptureService = contextCaptureService
         self.client = client
         let initialDraftCollection = sourceDraftStore?.collection ?? .default
         sourceDrafts = initialDraftCollection.drafts
@@ -69,6 +76,7 @@ final class TranslationViewModel: ObservableObject {
         selectedStyle = configStore.configuration.defaultWritingStyle
         isRealtimeTranslationEnabled = configStore.configuration.realtimeTranslationEnabled
         generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
+        polishInputShortcut = configStore.configuration.polishInputShortcut
 
         configStore.$configuration
             .map(\.defaultWritingStyle)
@@ -101,6 +109,14 @@ final class TranslationViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] shortcut in
                 self?.generateTranslationShortcut = shortcut
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.polishInputShortcut)
+            .removeDuplicates()
+            .sink { [weak self] shortcut in
+                self?.polishInputShortcut = shortcut
             }
             .store(in: &cancellables)
 
@@ -144,7 +160,7 @@ final class TranslationViewModel: ObservableObject {
     }
 
     func polishInput() {
-        inputPolishTask?.cancel()
+        cancelInputPolish()
         translationTask?.cancel()
         isLoading = false
 
@@ -156,6 +172,8 @@ final class TranslationViewModel: ObservableObject {
         inputPolishRequestID = requestID
         isPolishingInput = true
         errorMessage = nil
+        polishStatusMessage = nil
+        polishNeedsScreenRecordingPermission = false
 
         inputPolishTask = Task { [weak self] in
             await self?.polishInput(originalInput, requestID: requestID)
@@ -196,16 +214,22 @@ final class TranslationViewModel: ObservableObject {
 
     private func cancelInputPolishIfNeededForUserEdit() {
         guard !isApplyingPolishedInput else { return }
-        guard isPolishingInput else { return }
-        cancelInputPolish()
+        if isPolishingInput || pendingPolishedInput != nil {
+            cancelInputPolish(statusMessage: "Source changed. Polish again.")
+        } else if polishStatusMessage != nil {
+            dismissPolishStatus()
+        }
     }
 
-    private func cancelInputPolish() {
+    private func cancelInputPolish(statusMessage: String? = nil) {
         inputPolishTask?.cancel()
         inputPolishRequestID = UUID()
         isPolishingInput = false
         pendingPolishedInput = nil
         polishAnimationFrame = nil
+        polishContext = nil
+        polishStatusMessage = statusMessage
+        polishNeedsScreenRecordingPermission = false
     }
 
     func acceptPolishedInput() {
@@ -216,12 +240,21 @@ final class TranslationViewModel: ObservableObject {
         isApplyingPolishedInput = true
         inputText = pendingPolishedInput
         isApplyingPolishedInput = false
+        polishContext = nil
+        polishStatusMessage = nil
     }
 
     func rejectPolishedInput() {
         pendingPolishedInput = nil
         polishAnimationFrame = nil
+        polishContext = nil
+        polishStatusMessage = nil
         scheduleTranslation()
+    }
+
+    func dismissPolishStatus() {
+        polishStatusMessage = nil
+        polishNeedsScreenRecordingPermission = false
     }
 
     func retryNow() {
@@ -339,7 +372,7 @@ final class TranslationViewModel: ObservableObject {
 
     private func polishInput(_ originalInput: String, requestID: UUID) async {
         guard configStore.isConfigured else {
-            errorMessage = ChatCompletionsClientError.missingAPIKey(
+            polishStatusMessage = ChatCompletionsClientError.missingAPIKey(
                 configStore.configuration.provider.provider.rawValue
             ).localizedDescription
             isPolishingInput = false
@@ -355,12 +388,19 @@ final class TranslationViewModel: ObservableObject {
         }
 
         do {
+            let context = try await contextCaptureService.captureContext(for: originalInput)
+
+            guard !Task.isCancelled, inputPolishRequestID == requestID else { return }
+            guard inputText == originalInput else { return }
+            polishContext = context
+
             let polishedInput = try await client.polishInput(
                 input: originalInput,
+                screenContext: context,
                 configuration: configStore.configuration.provider
             )
 
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, inputPolishRequestID == requestID else { return }
             guard inputText == originalInput else { return }
 
             await animatePolishedInput(
@@ -368,13 +408,20 @@ final class TranslationViewModel: ObservableObject {
                 to: polishedInput,
                 requestID: requestID
             )
+            if polishedInput == originalInput {
+                polishStatusMessage = "No changes needed."
+                polishContext = nil
+            }
             errorMessage = nil
         } catch is CancellationError {
             return
         } catch {
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, inputPolishRequestID == requestID else { return }
             guard inputText == originalInput else { return }
-            errorMessage = error.localizedDescription
+            polishContext = nil
+            polishStatusMessage = error.localizedDescription
+            polishNeedsScreenRecordingPermission = (error as? ScreenContextCaptureError)?
+                .requiresScreenRecordingSettings == true
         }
 
         isPolishingInput = false

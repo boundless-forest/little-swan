@@ -11,6 +11,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var toggleShortcut: KeyboardShortcutConfiguration
     public var resetWindowShortcut: KeyboardShortcutConfiguration
     public var generateTranslationShortcut: KeyboardShortcutConfiguration
+    public var polishInputShortcut: KeyboardShortcutConfiguration
     public var commonPhrases: CommonPhraseCollection
 
     public init(
@@ -24,6 +25,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
         resetWindowShortcut: KeyboardShortcutConfiguration = .defaultResetWindowShortcut,
         generateTranslationShortcut: KeyboardShortcutConfiguration = .defaultGenerateTranslationShortcut,
+        polishInputShortcut: KeyboardShortcutConfiguration = .defaultPolishInputShortcut,
         commonPhrases: CommonPhraseCollection = .default
     ) {
         self.provider = provider
@@ -46,6 +48,12 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             toggleShortcut: toggleShortcut,
             resetWindowShortcut: self.resetWindowShortcut
         )
+        self.polishInputShortcut = Self.nonConflictingPolishInputShortcut(
+            polishInputShortcut,
+            toggleShortcut: toggleShortcut,
+            resetWindowShortcut: self.resetWindowShortcut,
+            generateTranslationShortcut: self.generateTranslationShortcut
+        )
         self.commonPhrases = commonPhrases.normalized()
     }
 
@@ -62,6 +70,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case toggleShortcut
         case resetWindowShortcut
         case generateTranslationShortcut
+        case polishInputShortcut
         case commonPhrases
     }
 
@@ -115,6 +124,19 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             decodedGenerateTranslationShortcut,
             toggleShortcut: toggleShortcut,
             resetWindowShortcut: resetWindowShortcut
+        )
+        let persistedPolishInputShortcut = try container.decodeIfPresent(
+            KeyboardShortcutConfiguration.self,
+            forKey: .polishInputShortcut
+        ) ?? .defaultPolishInputShortcut
+        let decodedPolishInputShortcut = persistedPolishInputShortcut == .legacyDefaultPolishInputShortcut
+            ? .defaultPolishInputShortcut
+            : persistedPolishInputShortcut
+        polishInputShortcut = Self.nonConflictingPolishInputShortcut(
+            decodedPolishInputShortcut,
+            toggleShortcut: toggleShortcut,
+            resetWindowShortcut: resetWindowShortcut,
+            generateTranslationShortcut: generateTranslationShortcut
         )
         commonPhrases = try container.decodeIfPresent(
             CommonPhraseCollection.self,
@@ -181,6 +203,23 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
                 return defaultShortcut
             }
             return .fallbackGenerateTranslationShortcut
+        }
+        return shortcut
+    }
+
+    private static func nonConflictingPolishInputShortcut(
+        _ shortcut: KeyboardShortcutConfiguration,
+        toggleShortcut: KeyboardShortcutConfiguration,
+        resetWindowShortcut: KeyboardShortcutConfiguration,
+        generateTranslationShortcut: KeyboardShortcutConfiguration
+    ) -> KeyboardShortcutConfiguration {
+        let existingShortcuts = [toggleShortcut, resetWindowShortcut, generateTranslationShortcut]
+        guard !existingShortcuts.contains(where: shortcut.conflicts) else {
+            let defaultShortcut = KeyboardShortcutConfiguration.defaultPolishInputShortcut
+            guard existingShortcuts.contains(where: defaultShortcut.conflicts) else {
+                return defaultShortcut
+            }
+            return .fallbackPolishInputShortcut
         }
         return shortcut
     }

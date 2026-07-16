@@ -7,6 +7,7 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let commandModifierFlag: UInt = 1 << 20
 
     public static let aKeyCode: UInt16 = 0
+    public static let pKeyCode: UInt16 = 35
     public static let zeroKeyCode: UInt16 = 29
     public static let returnKeyCode: UInt16 = 36
     public static let spaceKeyCode: UInt16 = 49
@@ -33,6 +34,21 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
 
     public static let fallbackGenerateTranslationShortcut = KeyboardShortcutConfiguration(
         keyCode: returnKeyCode,
+        modifierFlags: commandModifierFlag | shiftModifierFlag
+    )
+
+    public static let defaultPolishInputShortcut = KeyboardShortcutConfiguration(
+        keyCode: pKeyCode,
+        modifierFlags: controlModifierFlag
+    )
+
+    public static let fallbackPolishInputShortcut = KeyboardShortcutConfiguration(
+        keyCode: pKeyCode,
+        modifierFlags: commandModifierFlag | optionModifierFlag
+    )
+
+    static let legacyDefaultPolishInputShortcut = KeyboardShortcutConfiguration(
+        keyCode: pKeyCode,
         modifierFlags: commandModifierFlag | shiftModifierFlag
     )
 

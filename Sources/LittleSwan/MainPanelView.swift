@@ -1,3 +1,4 @@
+import AppKit
 import LittleSwanCore
 import SwiftUI
 
@@ -10,6 +11,7 @@ struct MainPanelView: View {
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackTask: Task<Void, Never>?
     @State private var isCommonPhrasePickerPresented = false
+    @State private var isPolishContextPresented = false
     @State private var inputGuidanceMessage: String?
     @State private var outputGuidanceMessage: String?
     @State private var inputGuidanceTask: Task<Void, Never>?
@@ -113,8 +115,10 @@ struct MainPanelView: View {
                 .labelStyle(.iconOnly)
                 .buttonStyle(LittleSwanIconButtonStyle())
                 .controlSize(.small)
-                .disabled(viewModel.isPolishingInput)
-                .help("Polish input text")
+                .disabled(viewModel.isPolishingInput || viewModel.pendingPolishedInput != nil)
+                .configuredKeyboardShortcut(viewModel.polishInputShortcut)
+                .help("Polish with context from the previous window (\(viewModel.polishInputShortcut.displayString))")
+                .accessibilityHint("Captures the previous window once, recognizes its visible text, and uses it as writing context")
 
                 Button {
                     isInputFocused = true
@@ -154,6 +158,79 @@ struct MainPanelView: View {
 
             Divider()
                 .overlay(LittleSwanTheme.Palette.divider)
+
+            if let context = viewModel.polishContext {
+                HStack(spacing: 7) {
+                    Image(systemName: "rectangle.and.text.magnifyingglass")
+                        .foregroundStyle(LittleSwanTheme.Palette.accent)
+
+                    Button {
+                        isPolishContextPresented = true
+                    } label: {
+                        Text("Using \(context.displayTitle)")
+                            .font(LittleSwanTheme.Typography.status)
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Review the recognized screen context")
+                    .popover(isPresented: $isPolishContextPresented, arrowEdge: .top) {
+                        polishContextPreview(context)
+                    }
+
+                    Spacer(minLength: 4)
+
+                    Text("Captured once · not saved")
+                        .font(LittleSwanTheme.Typography.helper)
+                        .foregroundStyle(LittleSwanTheme.Palette.textTertiary)
+                        .fixedSize()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+
+                Divider()
+                    .overlay(LittleSwanTheme.Palette.divider)
+            } else if let statusMessage = viewModel.polishStatusMessage {
+                HStack(spacing: 7) {
+                    Image(
+                        systemName: statusMessage == "No changes needed."
+                            ? "checkmark.circle.fill"
+                            : "exclamationmark.triangle.fill"
+                    )
+                        .foregroundStyle(
+                            statusMessage == "No changes needed."
+                                ? LittleSwanTheme.Palette.success
+                                : LittleSwanTheme.Palette.warning
+                        )
+
+                    Text(statusMessage)
+                        .font(LittleSwanTheme.Typography.status)
+                        .foregroundStyle(LittleSwanTheme.Palette.textPrimary)
+                        .lineLimit(2)
+
+                    Spacer(minLength: 4)
+
+                    if viewModel.polishNeedsScreenRecordingPermission {
+                        Button("Open Settings") {
+                            openScreenRecordingSettings()
+                        }
+                        .controlSize(.small)
+                    }
+
+                    Button {
+                        viewModel.dismissPolishStatus()
+                    } label: {
+                        Label("Dismiss", systemImage: "xmark")
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .help("Dismiss")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+
+                Divider()
+                    .overlay(LittleSwanTheme.Palette.divider)
+            }
 
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $viewModel.inputText)
@@ -208,7 +285,10 @@ struct MainPanelView: View {
                     .overlay(LittleSwanTheme.Palette.divider)
 
                 HStack(spacing: 8) {
-                    Text("Review polished changes")
+                    Text(
+                        viewModel.polishContext.map { "Review changes using context from \($0.sourceApp)" }
+                            ?? "Review polished changes"
+                    )
                         .font(LittleSwanTheme.Typography.helper)
                         .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
 
@@ -237,6 +317,37 @@ struct MainPanelView: View {
         frame.segments.reduce(Text("")) { partialText, segment in
             partialText + highlightedPolishSegment(segment)
         }
+    }
+
+    private func polishContextPreview(_ context: ScreenContext) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(context.displayTitle, systemImage: "macwindow")
+                .font(LittleSwanTheme.Typography.controlStrong)
+
+            Text("Little Swan captured this window once and recognized the following text locally. The screenshot and recognized text are not stored.")
+                .font(LittleSwanTheme.Typography.helper)
+                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ScrollView {
+                Text(context.recognizedText)
+                    .font(.system(size: 12, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(8)
+            .background(LittleSwanTheme.Palette.surfaceSubtle)
+            .clipShape(RoundedRectangle(cornerRadius: LittleSwanTheme.Radius.compact))
+        }
+        .padding(14)
+        .frame(width: 480, height: 340)
+    }
+
+    private func openScreenRecordingSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func highlightedPolishSegment(_ segment: PolishedInputAnimation.Segment) -> Text {

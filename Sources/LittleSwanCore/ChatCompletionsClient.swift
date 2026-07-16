@@ -48,6 +48,20 @@ public enum ProviderEndpoint {
     }
 }
 
+public protocol ChatCompletionsServing: Sendable {
+    func rewriteEnglish(
+        input: String,
+        style: WritingStyle,
+        configuration: ProviderConfiguration
+    ) async throws -> String
+
+    func polishInput(
+        input: String,
+        screenContext: ScreenContext,
+        configuration: ProviderConfiguration
+    ) async throws -> String
+}
+
 /// Calls providers that implement the OpenAI-compatible chat completions API.
 public final class ChatCompletionsClient: Sendable {
     private let session: URLSession
@@ -75,10 +89,14 @@ public final class ChatCompletionsClient: Sendable {
 
     public func polishInput(
         input: String,
+        screenContext: ScreenContext,
         configuration: ProviderConfiguration
     ) async throws -> String {
         try await complete(
-            messages: PromptBuilder.inputPolishMessages(input: input),
+            messages: PromptBuilder.inputPolishMessages(
+                input: input,
+                screenContext: screenContext
+            ),
             temperature: 0.2,
             trimsOutput: false,
             configuration: configuration
@@ -159,6 +177,8 @@ public final class ChatCompletionsClient: Sendable {
         return trimsOutput ? trimmedOutput : rawOutput
     }
 }
+
+extension ChatCompletionsClient: ChatCompletionsServing {}
 
 private struct ChatCompletionRequest: Encodable {
     var model: String
