@@ -33,6 +33,7 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var commonPhrases: [String]
     @Published private(set) var isOutputStale = false
     @Published private(set) var copyFeedbackTrigger = 0
+    @Published private(set) var generateTranslationShortcut: KeyboardShortcutConfiguration
 
     private let configStore: ConfigStore
     private let sourceDraftStore: SourceDraftStore?
@@ -60,6 +61,7 @@ final class TranslationViewModel: ObservableObject {
         inputText = initialDraftCollection.selectedDraft?.text ?? ""
         selectedStyle = configStore.configuration.defaultWritingStyle
         isRealtimeTranslationEnabled = configStore.configuration.realtimeTranslationEnabled
+        generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
 
         configStore.$configuration
             .map(\.defaultWritingStyle)
@@ -84,6 +86,14 @@ final class TranslationViewModel: ObservableObject {
                 guard let self, self.isRealtimeTranslationEnabled != isEnabled else { return }
                 self.isRealtimeTranslationEnabled = isEnabled
                 self.scheduleTranslation()
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.generateTranslationShortcut)
+            .removeDuplicates()
+            .sink { [weak self] shortcut in
+                self?.generateTranslationShortcut = shortcut
             }
             .store(in: &cancellables)
 

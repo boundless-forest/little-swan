@@ -6,6 +6,9 @@ MENUBAR_TEMPLATE_ICON := LittleSwanMenuBarTemplate.png
 BUILD_CONFIG ?= release
 APP_VERSION ?= $(shell tr -d '[:space:]' < VERSION)
 BUILD_NUMBER ?= 1
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || printf 'unknown')
+GIT_COMMIT_DATE ?= $(shell git show -s --format=%cI HEAD 2>/dev/null || true)
+GIT_DIRTY ?= $(shell test -z "$$(git status --porcelain 2>/dev/null)" && printf false || printf true)
 ARCHS ?=
 ARCH_FLAGS := $(foreach arch,$(ARCHS),--arch $(arch))
 BIN_PATH = $(shell swift build -c $(BUILD_CONFIG) $(ARCH_FLAGS) --show-bin-path)
@@ -38,6 +41,9 @@ app: build
 	cp Design/little-swan-menubar-template.png "$(RESOURCES_DIR)/$(MENUBAR_TEMPLATE_ICON)"
 	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $(APP_VERSION)" "$(CONTENTS_DIR)/Info.plist"
 	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(BUILD_NUMBER)" "$(CONTENTS_DIR)/Info.plist"
+	/usr/libexec/PlistBuddy -c "Set :LittleSwanGitCommit $(GIT_COMMIT)" "$(CONTENTS_DIR)/Info.plist"
+	/usr/libexec/PlistBuddy -c "Set :LittleSwanGitCommitDate $(GIT_COMMIT_DATE)" "$(CONTENTS_DIR)/Info.plist"
+	/usr/libexec/PlistBuddy -c "Set :LittleSwanGitDirty $(GIT_DIRTY)" "$(CONTENTS_DIR)/Info.plist"
 	chmod +x "$(MACOS_DIR)/$(EXECUTABLE_NAME)"
 	@if [ "$(SIGNING_IDENTITY)" = "-" ]; then \
 		codesign --force --sign - "$(APP_DIR)"; \
@@ -48,6 +54,8 @@ app: build
 verify-app:
 	codesign --verify --deep --strict --verbose=2 "$(APP_DIR)"
 	/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$(CONTENTS_DIR)/Info.plist" | grep -Fx "$(APP_VERSION)"
+	/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$(CONTENTS_DIR)/Info.plist" | grep -Fx "$(BUILD_NUMBER)"
+	/usr/libexec/PlistBuddy -c "Print :LittleSwanGitCommit" "$(CONTENTS_DIR)/Info.plist" | grep -Fx "$(GIT_COMMIT)"
 
 archive: app verify-app
 	mkdir -p "$(DIST_DIR)"

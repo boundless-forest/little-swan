@@ -28,7 +28,8 @@ jobs:
         run: |
           make archive \
             ARCHS="arm64 x86_64" \
-            BUILD_NUMBER="${{ github.run_number }}"
+            BUILD_NUMBER="${{ github.run_number }}" \
+            GIT_COMMIT="${{ github.sha }}"
 
       - name: Render Homebrew Cask
         run: Scripts/render-homebrew-cask.sh "$(cat VERSION)" "dist/Little-Swan-$(cat VERSION).zip"

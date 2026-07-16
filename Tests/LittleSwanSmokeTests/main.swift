@@ -242,6 +242,11 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.toggleShortcut.displayString == "⌃A")
     precondition(configuration.resetWindowShortcut == KeyboardShortcutConfiguration.defaultResetWindowShortcut)
     precondition(configuration.resetWindowShortcut.displayString == "⌃0")
+    precondition(
+        configuration.generateTranslationShortcut
+            == KeyboardShortcutConfiguration.defaultGenerateTranslationShortcut
+    )
+    precondition(configuration.generateTranslationShortcut.displayString == "⌘Return")
     precondition(configuration.commonPhrases == CommonPhraseCollection.default)
 }
 
@@ -519,6 +524,10 @@ func testConfigurationDecodesPersistedShortcuts() throws {
       "resetWindowShortcut": {
         "keyCode": 15,
         "modifierFlags": 786432
+      },
+      "generateTranslationShortcut": {
+        "keyCode": 49,
+        "modifierFlags": 1179648
       }
     }
     """.data(using: .utf8)!
@@ -534,6 +543,12 @@ func testConfigurationDecodesPersistedShortcuts() throws {
             == KeyboardShortcutConfiguration.controlModifierFlag | KeyboardShortcutConfiguration.optionModifierFlag
     )
     precondition(configuration.resetWindowShortcut.displayString == "⌃⌥R")
+    precondition(configuration.generateTranslationShortcut.keyCode == 49)
+    precondition(
+        configuration.generateTranslationShortcut.modifierFlags
+            == KeyboardShortcutConfiguration.commandModifierFlag | KeyboardShortcutConfiguration.shiftModifierFlag
+    )
+    precondition(configuration.generateTranslationShortcut.displayString == "⇧⌘Space")
 }
 
 func testConfigurationDecodesLegacySettingsWithDefaultShortcuts() throws {
@@ -553,6 +568,7 @@ func testConfigurationDecodesLegacySettingsWithDefaultShortcuts() throws {
 
     precondition(configuration.toggleShortcut == .defaultToggleShortcut)
     precondition(configuration.resetWindowShortcut == .defaultResetWindowShortcut)
+    precondition(configuration.generateTranslationShortcut == .defaultGenerateTranslationShortcut)
 }
 
 func testConfigurationAvoidsShortcutConflictsDuringMigration() throws {
@@ -582,6 +598,14 @@ func testConfigurationAvoidsShortcutConflictsDuringMigration() throws {
         resetWindowShortcut: .defaultResetWindowShortcut
     )
     precondition(initializedConfiguration.resetWindowShortcut == .fallbackResetWindowShortcut)
+
+    let generateConflictConfiguration = AppConfiguration(
+        toggleShortcut: .defaultGenerateTranslationShortcut
+    )
+    precondition(
+        generateConflictConfiguration.generateTranslationShortcut
+            == .fallbackGenerateTranslationShortcut
+    )
 }
 
 func testCommonPhraseCollectionNormalizesPhrases() {
@@ -672,6 +696,7 @@ func testKeyboardShortcutRejectsMissingModifierOrKey() {
     precondition(KeyboardShortcutConfiguration(keyCode: 37, modifierFlags: 0).isValid == false)
     precondition(KeyboardShortcutConfiguration(keyCode: nil, modifierFlags: KeyboardShortcutConfiguration.controlModifierFlag).isValid == false)
     precondition(KeyboardShortcutConfiguration.defaultToggleShortcut.isValid)
+    precondition(KeyboardShortcutConfiguration.defaultGenerateTranslationShortcut.isValid)
 }
 
 func testKeyboardShortcutDetectsConflictingActions() {
@@ -711,6 +736,13 @@ func testKeyboardShortcutProvidesMenuEquivalentForDefaultResetWindowShortcut() {
 
     precondition(shortcut.menuKeyEquivalent == "0")
     precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+}
+
+func testKeyboardShortcutProvidesMenuEquivalentForDefaultGenerateTranslationShortcut() {
+    let shortcut = KeyboardShortcutConfiguration.defaultGenerateTranslationShortcut
+
+    precondition(shortcut.menuKeyEquivalent == "\r")
+    precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.commandModifierFlag)
 }
 
 func testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys() {
@@ -1019,6 +1051,47 @@ func testSourceDraftCollectionCodableRoundTripPreservesSelection() throws {
     precondition(decoded.drafts.count == SourceDraftCollection.draftCount)
 }
 
+func testBuildInformationReadsReleaseProvenance() {
+    let fullCommit = "300d6a3123456789abcdef0123456789abcdef01"
+    let information = BuildInformation(infoDictionary: [
+        "CFBundleShortVersionString": "0.1.0",
+        "CFBundleVersion": 42,
+        "LittleSwanGitCommit": fullCommit,
+        "LittleSwanGitCommitDate": "2026-07-16T09:30:00+08:00",
+        "LittleSwanGitDirty": false
+    ])
+
+    precondition(information.version == "0.1.0")
+    precondition(information.buildNumber == "42")
+    precondition(information.gitCommit == fullCommit)
+    precondition(information.shortGitCommit == "300d6a3")
+    precondition(information.displayedGitCommit == "300d6a3")
+    precondition(information.gitCommitDate != nil)
+    precondition(information.releaseNotesURL?.absoluteString == "https://github.com/boundless-forest/little-swan/releases/tag/v0.1.0")
+    precondition(information.commitURL?.absoluteString == "https://github.com/boundless-forest/little-swan/commit/\(fullCommit)")
+}
+
+func testBuildInformationHandlesDevelopmentAndModifiedBuilds() {
+    let modified = BuildInformation(infoDictionary: [
+        "LittleSwanGitCommit": "ABCDEF1234567",
+        "LittleSwanGitDirty": "true"
+    ])
+
+    precondition(modified.version == "Development")
+    precondition(modified.buildNumber == "Local")
+    precondition(modified.displayedGitCommit == "ABCDEF1 (modified)")
+    precondition(modified.releaseNotesURL == nil)
+
+    let unavailable = BuildInformation(infoDictionary: [
+        "LittleSwanGitCommit": "unknown",
+        "LittleSwanGitCommitDate": "not-a-date"
+    ])
+    precondition(unavailable.gitCommit == nil)
+    precondition(unavailable.gitCommitDate == nil)
+    precondition(unavailable.displayedGitCommit == "Unavailable")
+    precondition(unavailable.commitURL == nil)
+}
+
 testPromptBuilderProducesEnglishOnlySpokenRewritePrompt()
 testPromptBuilderTreatsQuestionsAndCommandsAsSourceText()
 testWritingStylesProvideDetailedDistinctGuidance()
@@ -1057,6 +1130,7 @@ testKeyboardShortcutDetectsConflictingActions()
 try testKeyboardShortcutDecodingMasksUnsupportedModifiers()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultResetWindowShortcut()
+testKeyboardShortcutProvidesMenuEquivalentForDefaultGenerateTranslationShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys()
 testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent()
 testPanelPresentationClampsContentSize()
@@ -1077,5 +1151,7 @@ testSourceDraftCollectionLabelsStayNumbered()
 testSourceDraftContentStatusIgnoresWhitespace()
 try testSourceDraftCollectionDecodingNormalizesLegacyDraftCount()
 try testSourceDraftCollectionCodableRoundTripPreservesSelection()
+testBuildInformationReadsReleaseProvenance()
+testBuildInformationHandlesDevelopmentAndModifiedBuilds()
 
 print("Little Swan smoke tests passed")

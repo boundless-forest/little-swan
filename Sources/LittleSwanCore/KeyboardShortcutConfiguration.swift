@@ -8,6 +8,7 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
 
     public static let aKeyCode: UInt16 = 0
     public static let zeroKeyCode: UInt16 = 29
+    public static let returnKeyCode: UInt16 = 36
     public static let spaceKeyCode: UInt16 = 49
 
     public static let defaultToggleShortcut = KeyboardShortcutConfiguration(
@@ -23,6 +24,16 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let fallbackResetWindowShortcut = KeyboardShortcutConfiguration(
         keyCode: zeroKeyCode,
         modifierFlags: controlModifierFlag | shiftModifierFlag
+    )
+
+    public static let defaultGenerateTranslationShortcut = KeyboardShortcutConfiguration(
+        keyCode: returnKeyCode,
+        modifierFlags: commandModifierFlag
+    )
+
+    public static let fallbackGenerateTranslationShortcut = KeyboardShortcutConfiguration(
+        keyCode: returnKeyCode,
+        modifierFlags: commandModifierFlag | shiftModifierFlag
     )
 
     public var keyCode: UInt16?

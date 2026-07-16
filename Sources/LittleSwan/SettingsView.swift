@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.openURL) private var openURL
 
     @ObservedObject var configStore: ConfigStore
     @State private var draft: AppConfiguration
@@ -46,26 +47,28 @@ struct SettingsView: View {
             }
             .frame(maxHeight: .infinity, alignment: .top)
 
-            HStack {
-                if let error = configStore.lastError {
-                    Text(error)
-                        .font(LittleSwanTheme.Typography.status)
-                        .foregroundStyle(LittleSwanTheme.Palette.danger)
-                        .lineLimit(1)
-                } else if didSave {
-                    Label("Saved", systemImage: "checkmark.circle.fill")
-                        .font(LittleSwanTheme.Typography.status)
-                        .foregroundStyle(LittleSwanTheme.Palette.success)
-                }
+            if selectedTab != .about {
+                HStack {
+                    if let error = configStore.lastError {
+                        Text(error)
+                            .font(LittleSwanTheme.Typography.status)
+                            .foregroundStyle(LittleSwanTheme.Palette.danger)
+                            .lineLimit(1)
+                    } else if didSave {
+                        Label("Saved", systemImage: "checkmark.circle.fill")
+                            .font(LittleSwanTheme.Typography.status)
+                            .foregroundStyle(LittleSwanTheme.Palette.success)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                Button("Restore all defaults…") {
-                    isRestoreConfirmationPresented = true
+                    Button("Restore all defaults…") {
+                        isRestoreConfirmationPresented = true
+                    }
+                    .buttonStyle(.borderless)
+                    .font(LittleSwanTheme.Typography.buttonLabel)
+                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
                 }
-                .buttonStyle(.borderless)
-                .font(LittleSwanTheme.Typography.buttonLabel)
-                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
             }
         }
         .padding(20)
@@ -113,11 +116,17 @@ struct SettingsView: View {
 
     private var tabRail: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(SettingsTab.allCases) { tab in
+            ForEach(SettingsTab.configurationTabs) { tab in
                 tabButton(tab)
             }
 
             Spacer()
+
+            Divider()
+                .overlay(LittleSwanTheme.Palette.divider)
+                .padding(.vertical, 4)
+
+            tabButton(.about)
         }
     }
 
@@ -191,6 +200,8 @@ struct SettingsView: View {
             commonPhrasesGroup
         case .shortcuts:
             shortcutsGroup
+        case .about:
+            aboutGroup
         }
     }
 
@@ -608,8 +619,141 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                settingsRow("Generate translation") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            KeyboardShortcutRecorder(
+                                shortcut: $draft.generateTranslationShortcut,
+                                accessibilityLabel: "Generate translation shortcut",
+                                accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
+                            )
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.generateTranslationShortcut = .defaultGenerateTranslationShortcut
+                            }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
+                        }
+
+                        Text(generateTranslationShortcutHelpText)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(
+                                generateTranslationShortcutCanBeSaved
+                                    ? LittleSwanTheme.Palette.textSecondary
+                                    : LittleSwanTheme.Palette.danger
+                            )
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             .padding(.vertical, 4)
+        }
+    }
+
+    private var aboutGroup: some View {
+        let buildInformation = BuildInformation()
+
+        return VStack(alignment: .leading, spacing: 18) {
+            VStack(spacing: 8) {
+                Image(nsImage: NSWorkspace.shared.icon(forFile: Bundle.main.bundlePath))
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 72, height: 72)
+                    .accessibilityHidden(true)
+
+                Text("Little Swan")
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+
+                Text("Turn any language into natural English")
+                    .font(LittleSwanTheme.Typography.control)
+                    .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+
+            GroupBox("Build information") {
+                VStack(alignment: .leading, spacing: 12) {
+                    aboutInformationRow("Version", value: buildInformation.version)
+                    aboutInformationRow("Build", value: buildInformation.buildNumber)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text("Git commit")
+                            .font(LittleSwanTheme.Typography.buttonLabel)
+                            .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                            .frame(width: 132, alignment: .leading)
+
+                        if let commitURL = buildInformation.commitURL {
+                            Button(buildInformation.displayedGitCommit) {
+                                openURL(commitURL)
+                            }
+                            .buttonStyle(.link)
+                            .help("View this commit on GitHub")
+                        } else {
+                            Text(buildInformation.displayedGitCommit)
+                        }
+
+                        if let gitCommit = buildInformation.gitCommit {
+                            Button {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(gitCommit, forType: .string)
+                            } label: {
+                                Label("Copy full commit", systemImage: "doc.on.doc")
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(LittleSwanIconButtonStyle())
+                            .help("Copy full commit SHA")
+                        }
+
+                        Spacer()
+                    }
+
+                    if let gitCommitDate = buildInformation.gitCommitDate {
+                        aboutInformationRow(
+                            "Commit date",
+                            value: gitCommitDate.formatted(
+                                .dateTime.year().month(.wide).day().locale(Locale(identifier: "en_US"))
+                            )
+                        )
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+
+            HStack(spacing: 10) {
+                if let releaseNotesURL = buildInformation.releaseNotesURL {
+                    Button("View release notes") {
+                        openURL(releaseNotesURL)
+                    }
+                }
+
+                Button("View source code") {
+                    openURL(BuildInformation.repositoryURL)
+                }
+
+                Spacer()
+            }
+            .font(LittleSwanTheme.Typography.buttonLabel)
+
+            Spacer()
+
+            Text("Copyright © 2026 Bear Wang")
+                .font(LittleSwanTheme.Typography.helper)
+                .foregroundStyle(LittleSwanTheme.Palette.textTertiary)
+                .frame(maxWidth: .infinity)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func aboutInformationRow(_ title: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(title)
+                .font(LittleSwanTheme.Typography.buttonLabel)
+                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                .frame(width: 132, alignment: .leading)
+
+            Text(value)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -783,6 +927,7 @@ struct SettingsView: View {
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,
             resetWindowShortcut: .defaultResetWindowShortcut,
+            generateTranslationShortcut: .defaultGenerateTranslationShortcut,
             commonPhrases: .default
         )
     }
@@ -807,8 +952,20 @@ struct SettingsView: View {
         }
     }
 
+    private var generateTranslationShortcutHelpText: String {
+        if shortcutsConflict {
+            "Shortcut was not saved. Choose a different shortcut for each action."
+        } else if draft.generateTranslationShortcut.isValid {
+            "Press this shortcut in the main window to generate or update the translation."
+        } else {
+            "Shortcut was not saved. Include at least one modifier key."
+        }
+    }
+
     private var shortcutsConflict: Bool {
         draft.toggleShortcut.conflicts(with: draft.resetWindowShortcut)
+            || draft.toggleShortcut.conflicts(with: draft.generateTranslationShortcut)
+            || draft.resetWindowShortcut.conflicts(with: draft.generateTranslationShortcut)
     }
 
     private var toggleShortcutCanBeSaved: Bool {
@@ -817,6 +974,10 @@ struct SettingsView: View {
 
     private var resetWindowShortcutCanBeSaved: Bool {
         draft.resetWindowShortcut.isValid && !shortcutsConflict
+    }
+
+    private var generateTranslationShortcutCanBeSaved: Bool {
+        draft.generateTranslationShortcut.isValid && !shortcutsConflict
     }
 
     private func scheduleAutoSave() {
@@ -840,9 +1001,16 @@ struct SettingsView: View {
         if !nextConfiguration.resetWindowShortcut.isValid {
             nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
         }
-        if nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.resetWindowShortcut) {
+        if !nextConfiguration.generateTranslationShortcut.isValid {
+            nextConfiguration.generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
+        }
+        let hasShortcutConflict = nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.resetWindowShortcut)
+            || nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
+            || nextConfiguration.resetWindowShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
+        if hasShortcutConflict {
             nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
             nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
+            nextConfiguration.generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
         }
         configStore.configuration = nextConfiguration
         configStore.save()
@@ -932,6 +1100,14 @@ private enum SettingsTab: String, CaseIterable, Identifiable, Hashable {
     case translation
     case commonPhrases
     case shortcuts
+    case about
+
+    static let configurationTabs: [SettingsTab] = [
+        .provider,
+        .translation,
+        .commonPhrases,
+        .shortcuts
+    ]
 
     var id: String { rawValue }
 
@@ -945,6 +1121,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable, Hashable {
             "Common phrases"
         case .shortcuts:
             "Shortcuts"
+        case .about:
+            "About"
         }
     }
 
@@ -958,6 +1136,8 @@ private enum SettingsTab: String, CaseIterable, Identifiable, Hashable {
             "text.badge.plus"
         case .shortcuts:
             "keyboard"
+        case .about:
+            "info.circle"
         }
     }
 }

@@ -306,8 +306,8 @@ struct MainPanelView: View {
                         viewModel.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             || viewModel.isLoading
                     )
-                    .keyboardShortcut(.return, modifiers: .command)
-                    .help("Generate English result (Command-Return)")
+                    .configuredKeyboardShortcut(viewModel.generateTranslationShortcut)
+                    .help("Generate English result (\(viewModel.generateTranslationShortcut.displayString))")
 
                     Button {
                         viewModel.copyOutput()
@@ -399,6 +399,31 @@ struct MainPanelView: View {
         }
     }
 
+}
+
+private extension View {
+    @ViewBuilder
+    func configuredKeyboardShortcut(_ shortcut: KeyboardShortcutConfiguration) -> some View {
+        if let keyEquivalent = shortcut.menuKeyEquivalent?.first,
+           let modifierFlags = shortcut.menuModifierFlags {
+            keyboardShortcut(
+                KeyEquivalent(keyEquivalent),
+                modifiers: EventModifiers(keyboardShortcutModifierFlags: modifierFlags)
+            )
+        } else {
+            self
+        }
+    }
+}
+
+private extension EventModifiers {
+    init(keyboardShortcutModifierFlags flags: UInt) {
+        self = []
+        if flags & KeyboardShortcutConfiguration.commandModifierFlag != 0 { insert(.command) }
+        if flags & KeyboardShortcutConfiguration.controlModifierFlag != 0 { insert(.control) }
+        if flags & KeyboardShortcutConfiguration.optionModifierFlag != 0 { insert(.option) }
+        if flags & KeyboardShortcutConfiguration.shiftModifierFlag != 0 { insert(.shift) }
+    }
 }
 
 private struct CommonPhrasePicker: View {

@@ -24,6 +24,12 @@
 	<string>14.0</string>
 	<key>LSUIElement</key>
 	<true/>
+	<key>LittleSwanGitCommit</key>
+	<string>unknown</string>
+	<key>LittleSwanGitCommitDate</key>
+	<string></string>
+	<key>LittleSwanGitDirty</key>
+	<false/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
