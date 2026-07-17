@@ -6,16 +6,15 @@ import ScreenCaptureKit
 import Vision
 
 struct ExternalWindowTarget: Equatable, Sendable {
-    var windowID: CGWindowID?
-    var ownerProcessID: pid_t
+    var windowID: CGWindowID
     var appName: String
-    var bundleIdentifier: String?
     var windowTitle: String?
 }
 
 @MainActor
 final class ExternalWindowTracker: NSObject {
     private(set) var target: ExternalWindowTarget?
+    private var hasPendingPreShowLock = false
 
     override init() {
         super.init()
@@ -35,33 +34,46 @@ final class ExternalWindowTracker: NSObject {
     @objc private func applicationDidActivate(_ notification: Notification) {
         let application = notification.userInfo?[NSWorkspace.applicationUserInfoKey]
             as? NSRunningApplication
-        rememberIfExternal(application)
+        if Self.isLittleSwan(application) {
+            if hasPendingPreShowLock {
+                hasPendingPreShowLock = false
+            } else {
+                target = Self.frontExternalWindow()
+            }
+        } else {
+            hasPendingPreShowLock = false
+            rememberIfExternal(application)
+        }
     }
 
-    /// Refreshing from window Z-order also covers the first Polish after launch,
-    /// before macOS has delivered an external application activation notification.
+    /// Lock the exact window before Little Swan changes application focus or window order.
+    func lockFrontmostExternalWindow() {
+        target = Self.frontExternalWindow()
+        hasPendingPreShowLock = true
+    }
+
     func currentTarget() -> ExternalWindowTarget? {
-        if let frontExternalWindow = Self.frontExternalWindow() {
-            target = frontExternalWindow
-        }
-        return target
+        target
     }
 
     private func rememberIfExternal(_ application: NSRunningApplication?) {
         guard let application,
-              application.processIdentifier != ProcessInfo.processInfo.processIdentifier,
-              application.bundleIdentifier != Bundle.main.bundleIdentifier else {
+              !Self.isLittleSwan(application),
+              let window = Self.frontWindow(for: application.processIdentifier) else {
             return
         }
 
-        let window = Self.frontWindow(for: application.processIdentifier)
         target = ExternalWindowTarget(
-            windowID: window?.id,
-            ownerProcessID: application.processIdentifier,
+            windowID: window.id,
             appName: application.localizedName ?? "Other app",
-            bundleIdentifier: application.bundleIdentifier,
-            windowTitle: window?.title
+            windowTitle: window.title
         )
+    }
+
+    private static func isLittleSwan(_ application: NSRunningApplication?) -> Bool {
+        guard let application else { return false }
+        return application.processIdentifier == ProcessInfo.processInfo.processIdentifier
+            || application.bundleIdentifier == Bundle.main.bundleIdentifier
     }
 
     private static func frontWindow(for processID: pid_t) -> (id: CGWindowID, title: String?)? {
@@ -112,11 +124,9 @@ final class ExternalWindowTracker: NSObject {
             let application = NSRunningApplication(processIdentifier: processID)
             return ExternalWindowTarget(
                 windowID: CGWindowID(windowNumber.uint32Value),
-                ownerProcessID: processID,
                 appName: application?.localizedName
                     ?? (window[kCGWindowOwnerName as String] as? String)
                     ?? "Other app",
-                bundleIdentifier: application?.bundleIdentifier,
                 windowTitle: window[kCGWindowName as String] as? String
             )
         }
@@ -153,6 +163,21 @@ enum ScreenContextCaptureError: LocalizedError, Equatable {
 
     var requiresScreenRecordingSettings: Bool {
         self == .permissionRequired
+    }
+
+    var sourceOnlyFallbackDescription: String {
+        switch self {
+        case .permissionRequired:
+            "Using Source only. Allow Screen Recording to add previous-window context."
+        case .noExternalWindow:
+            "Using Source only because no previous external window was locked."
+        case .windowUnavailable(let appName):
+            "Using Source only because the locked \(appName) window is no longer available."
+        case .noRecognizedText(let appName):
+            "Using Source only because no readable text was found in the locked \(appName) window."
+        case .captureFailed:
+            "Using Source only because screen context could not be read."
+        }
     }
 }
 
@@ -218,21 +243,9 @@ final class ScreenContextCaptureService: ScreenContextCapturing {
         for target: ExternalWindowTarget,
         in windows: [SCWindow]
     ) -> SCWindow? {
-        if let windowID = target.windowID,
-           let exactMatch = windows.first(where: { $0.windowID == windowID }) {
-            return exactMatch
-        }
-
-        return windows
-            .filter { window in
-                window.owningApplication?.processID == target.ownerProcessID
-                    && window.windowLayer == 0
-                    && window.frame.width >= 240
-                    && window.frame.height >= 160
-            }
-            .max { left, right in
-                left.frame.width * left.frame.height < right.frame.width * right.frame.height
-            }
+        // Never silently substitute another window from the same app. If the locked
+        // window disappears, Source-only Polish is safer than unrelated OCR context.
+        return windows.first(where: { $0.windowID == target.windowID })
     }
 
     nonisolated private static func recognizeText(

@@ -15,7 +15,7 @@ The configuration and draft files are written with permissions that restrict acc
 
 When translation, input polishing, or connection testing is used, Little Swan sends the relevant request directly to the provider endpoint selected in Settings. This may be DeepSeek, OpenAI, OpenRouter, or a custom compatible endpoint. Source text, prompts added by Little Swan, the selected model identifier, and authentication information needed by that provider are included in the request.
 
-For contextual Polish, Little Swan also sends the source application name, available window title, and the visible text recognized from the captured window. The screenshot itself is processed locally with macOS text recognition and is never sent to the provider. The recognized context remains in memory only for the active request and its accept-or-reject review.
+When screen context is enabled and available, contextual Polish also sends the source application name, available window title, and the visible text recognized from the captured window. The screenshot itself is processed locally with macOS text recognition and is never sent to the provider. The recognized context remains in memory only for the active request and its accept-or-reject review. If context is disabled, permission is unavailable, or capture fails, Polish continues using the Source alone.
 
 Remote endpoints must use HTTPS. Unencrypted HTTP is accepted only for loopback addresses such as `localhost` for local development services.
 
@@ -23,7 +23,7 @@ Each provider controls its own processing, logging, retention, and training poli
 
 ## Screen Recording access
 
-Contextual Polish requires macOS Screen Recording permission. Little Swan captures one snapshot of the previously active external window only when the user invokes Polish from the button or its shortcut. It does not capture continuously, record video, or monitor the screen in the background.
+Optional screen context requires macOS Screen Recording permission. Immediately before showing its panel, Little Swan locks the exact frontmost external window across all connected displays. When the user later invokes Polish, it captures one snapshot of that locked window only. It does not capture continuously, record video, or monitor the screen in the background.
 
 The captured image is held in memory long enough to recognize visible text, then discarded. The interface shows which application and window supplied the context and lets the user inspect the recognized text while reviewing the proposed edit.
 

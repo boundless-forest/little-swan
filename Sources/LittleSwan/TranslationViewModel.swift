@@ -3,6 +3,12 @@ import Combine
 import Foundation
 import LittleSwanCore
 
+enum PolishStatusTone {
+    case information
+    case success
+    case warning
+}
+
 @MainActor
 final class TranslationViewModel: ObservableObject {
     @Published var inputText = "" {
@@ -42,8 +48,10 @@ final class TranslationViewModel: ObservableObject {
     @Published private(set) var copyFeedbackTrigger = 0
     @Published private(set) var generateTranslationShortcut: KeyboardShortcutConfiguration
     @Published private(set) var polishInputShortcut: KeyboardShortcutConfiguration
+    @Published private(set) var useScreenContextForPolish: Bool
     @Published private(set) var polishContext: ScreenContext?
     @Published private(set) var polishStatusMessage: String?
+    @Published private(set) var polishStatusTone: PolishStatusTone = .information
     @Published private(set) var polishNeedsScreenRecordingPermission = false
 
     private let configStore: ConfigStore
@@ -77,6 +85,7 @@ final class TranslationViewModel: ObservableObject {
         isRealtimeTranslationEnabled = configStore.configuration.realtimeTranslationEnabled
         generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
         polishInputShortcut = configStore.configuration.polishInputShortcut
+        useScreenContextForPolish = configStore.configuration.useScreenContextForPolish
 
         configStore.$configuration
             .map(\.defaultWritingStyle)
@@ -117,6 +126,14 @@ final class TranslationViewModel: ObservableObject {
             .removeDuplicates()
             .sink { [weak self] shortcut in
                 self?.polishInputShortcut = shortcut
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.useScreenContextForPolish)
+            .removeDuplicates()
+            .sink { [weak self] isEnabled in
+                self?.useScreenContextForPolish = isEnabled
             }
             .store(in: &cancellables)
 
@@ -173,6 +190,7 @@ final class TranslationViewModel: ObservableObject {
         isPolishingInput = true
         errorMessage = nil
         polishStatusMessage = nil
+        polishStatusTone = .information
         polishNeedsScreenRecordingPermission = false
 
         inputPolishTask = Task { [weak self] in
@@ -229,6 +247,7 @@ final class TranslationViewModel: ObservableObject {
         polishAnimationFrame = nil
         polishContext = nil
         polishStatusMessage = statusMessage
+        polishStatusTone = .information
         polishNeedsScreenRecordingPermission = false
     }
 
@@ -242,6 +261,8 @@ final class TranslationViewModel: ObservableObject {
         isApplyingPolishedInput = false
         polishContext = nil
         polishStatusMessage = nil
+        polishStatusTone = .information
+        polishNeedsScreenRecordingPermission = false
     }
 
     func rejectPolishedInput() {
@@ -249,11 +270,14 @@ final class TranslationViewModel: ObservableObject {
         polishAnimationFrame = nil
         polishContext = nil
         polishStatusMessage = nil
+        polishStatusTone = .information
+        polishNeedsScreenRecordingPermission = false
         scheduleTranslation()
     }
 
     func dismissPolishStatus() {
         polishStatusMessage = nil
+        polishStatusTone = .information
         polishNeedsScreenRecordingPermission = false
     }
 
@@ -375,6 +399,7 @@ final class TranslationViewModel: ObservableObject {
             polishStatusMessage = ChatCompletionsClientError.missingAPIKey(
                 configStore.configuration.provider.provider.rawValue
             ).localizedDescription
+            polishStatusTone = .warning
             isPolishingInput = false
             return
         }
@@ -387,13 +412,30 @@ final class TranslationViewModel: ObservableObject {
             }
         }
 
+        var context: ScreenContext?
+        var contextFallbackMessage: String?
+        var contextNeedsScreenRecordingPermission = false
+        if configStore.configuration.useScreenContextForPolish {
+            do {
+                context = try await contextCaptureService.captureContext(for: originalInput)
+            } catch is CancellationError {
+                return
+            } catch {
+                let captureError = error as? ScreenContextCaptureError
+                contextFallbackMessage = captureError?.sourceOnlyFallbackDescription
+                    ?? "Using Source only because screen context could not be read."
+                contextNeedsScreenRecordingPermission = captureError?.requiresScreenRecordingSettings == true
+            }
+        }
+
+        guard !Task.isCancelled, inputPolishRequestID == requestID else { return }
+        guard inputText == originalInput else { return }
+        polishContext = context
+        polishStatusMessage = contextFallbackMessage
+        polishStatusTone = .information
+        polishNeedsScreenRecordingPermission = contextNeedsScreenRecordingPermission
+
         do {
-            let context = try await contextCaptureService.captureContext(for: originalInput)
-
-            guard !Task.isCancelled, inputPolishRequestID == requestID else { return }
-            guard inputText == originalInput else { return }
-            polishContext = context
-
             let polishedInput = try await client.polishInput(
                 input: originalInput,
                 screenContext: context,
@@ -409,7 +451,13 @@ final class TranslationViewModel: ObservableObject {
                 requestID: requestID
             )
             if polishedInput == originalInput {
-                polishStatusMessage = "No changes needed."
+                if let contextFallbackMessage {
+                    polishStatusMessage = "No changes needed. \(contextFallbackMessage)"
+                    polishStatusTone = .information
+                } else {
+                    polishStatusMessage = "No changes needed."
+                    polishStatusTone = .success
+                }
                 polishContext = nil
             }
             errorMessage = nil
@@ -420,8 +468,8 @@ final class TranslationViewModel: ObservableObject {
             guard inputText == originalInput else { return }
             polishContext = nil
             polishStatusMessage = error.localizedDescription
-            polishNeedsScreenRecordingPermission = (error as? ScreenContextCaptureError)?
-                .requiresScreenRecordingSettings == true
+            polishStatusTone = .warning
+            polishNeedsScreenRecordingPermission = false
         }
 
         isPolishingInput = false

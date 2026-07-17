@@ -117,8 +117,12 @@ struct MainPanelView: View {
                 .controlSize(.small)
                 .disabled(viewModel.isPolishingInput || viewModel.pendingPolishedInput != nil)
                 .configuredKeyboardShortcut(viewModel.polishInputShortcut)
-                .help("Polish with context from the previous window (\(viewModel.polishInputShortcut.displayString))")
-                .accessibilityHint("Captures the previous window once, recognizes its visible text, and uses it as writing context")
+                .help(polishButtonHelpText)
+                .accessibilityHint(
+                    viewModel.useScreenContextForPolish
+                        ? "Organizes the Source and uses the locked previous window as optional writing context"
+                        : "Organizes and corrects the current Source without screen context"
+                )
 
                 Button {
                     isInputFocused = true
@@ -191,16 +195,8 @@ struct MainPanelView: View {
                     .overlay(LittleSwanTheme.Palette.divider)
             } else if let statusMessage = viewModel.polishStatusMessage {
                 HStack(spacing: 7) {
-                    Image(
-                        systemName: statusMessage == "No changes needed."
-                            ? "checkmark.circle.fill"
-                            : "exclamationmark.triangle.fill"
-                    )
-                        .foregroundStyle(
-                            statusMessage == "No changes needed."
-                                ? LittleSwanTheme.Palette.success
-                                : LittleSwanTheme.Palette.warning
-                        )
+                    Image(systemName: polishStatusSymbol)
+                        .foregroundStyle(polishStatusColor)
 
                     Text(statusMessage)
                         .font(LittleSwanTheme.Typography.status)
@@ -341,6 +337,36 @@ struct MainPanelView: View {
         }
         .padding(14)
         .frame(width: 480, height: 340)
+    }
+
+    private var polishButtonHelpText: String {
+        let shortcut = viewModel.polishInputShortcut.displayString
+        if viewModel.useScreenContextForPolish {
+            return "Polish Source and use the locked previous window when available (\(shortcut))"
+        }
+        return "Polish Source without screen context (\(shortcut))"
+    }
+
+    private var polishStatusSymbol: String {
+        switch viewModel.polishStatusTone {
+        case .information:
+            "info.circle.fill"
+        case .success:
+            "checkmark.circle.fill"
+        case .warning:
+            "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var polishStatusColor: Color {
+        switch viewModel.polishStatusTone {
+        case .information:
+            LittleSwanTheme.Palette.accent
+        case .success:
+            LittleSwanTheme.Palette.success
+        case .warning:
+            LittleSwanTheme.Palette.warning
+        }
     }
 
     private func openScreenRecordingSettings() {

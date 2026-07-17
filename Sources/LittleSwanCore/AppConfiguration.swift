@@ -6,6 +6,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var debounceMilliseconds: Int
     public var realtimeTranslationEnabled: Bool
     public var copyGeneratedResultToClipboard: Bool
+    public var useScreenContextForPolish: Bool
     public var defaultWritingStyle: WritingStyle
     public var panelContentSize: PanelContentSizeConfiguration
     public var toggleShortcut: KeyboardShortcutConfiguration
@@ -20,6 +21,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         debounceMilliseconds: Int = TranslationTiming.defaultRealtimeDelayMilliseconds,
         realtimeTranslationEnabled: Bool = true,
         copyGeneratedResultToClipboard: Bool = true,
+        useScreenContextForPolish: Bool = true,
         defaultWritingStyle: WritingStyle = .spoken,
         panelContentSize: PanelContentSizeConfiguration = PanelPresentation.defaultContentSize,
         toggleShortcut: KeyboardShortcutConfiguration = .defaultToggleShortcut,
@@ -36,6 +38,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         self.debounceMilliseconds = TranslationTiming.clampedDebounceMilliseconds(debounceMilliseconds)
         self.realtimeTranslationEnabled = realtimeTranslationEnabled
         self.copyGeneratedResultToClipboard = copyGeneratedResultToClipboard
+        self.useScreenContextForPolish = useScreenContextForPolish
         self.defaultWritingStyle = defaultWritingStyle
         self.panelContentSize = PanelPresentation.clampedContentSize(panelContentSize)
         self.toggleShortcut = toggleShortcut
@@ -65,6 +68,7 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case debounceMilliseconds
         case realtimeTranslationEnabled
         case copyGeneratedResultToClipboard
+        case useScreenContextForPolish
         case defaultWritingStyle
         case panelContentSize
         case toggleShortcut
@@ -102,6 +106,10 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         copyGeneratedResultToClipboard = try container.decodeIfPresent(
             Bool.self,
             forKey: .copyGeneratedResultToClipboard
+        ) ?? true
+        useScreenContextForPolish = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .useScreenContextForPolish
         ) ?? true
         defaultWritingStyle = try container.decodeIfPresent(WritingStyle.self, forKey: .defaultWritingStyle) ?? .spoken
         toggleShortcut = try container.decodeIfPresent(

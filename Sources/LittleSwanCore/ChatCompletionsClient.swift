@@ -57,7 +57,7 @@ public protocol ChatCompletionsServing: Sendable {
 
     func polishInput(
         input: String,
-        screenContext: ScreenContext,
+        screenContext: ScreenContext?,
         configuration: ProviderConfiguration
     ) async throws -> String
 }
@@ -89,7 +89,7 @@ public final class ChatCompletionsClient: Sendable {
 
     public func polishInput(
         input: String,
-        screenContext: ScreenContext,
+        screenContext: ScreenContext?,
         configuration: ProviderConfiguration
     ) async throws -> String {
         try await complete(

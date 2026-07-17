@@ -31,7 +31,7 @@ Little Swan is designed for people who regularly work in English but do not want
 - Real-time or manual translation, with a customizable generate shortcut and optional automatic clipboard copying.
 - Spoken and Formal English writing styles.
 - Editable English output with one-click copying and inline feedback.
-- Context-aware input polishing that reads visible text from the previously active window, corrects likely dictation errors, and presents explicit accept and reject actions.
+- Source-first input polishing that organizes multi-batch dictation and mixed-language recognition errors, optionally reads the exact window used before opening Little Swan, and presents explicit accept and reject actions.
 - DeepSeek, OpenAI, and OpenRouter support with editable base URLs, model identifiers, and connection testing.
 - Resizable panel with remembered dimensions and customizable global shortcuts.
 - No translation history.
@@ -61,7 +61,7 @@ Little Swan is currently ad-hoc signed and is not notarized by Apple. On the fir
 
 Only approve a copy installed from `boundless-forest/tap/little-swan` or downloaded from this repository's official [Releases](https://github.com/boundless-forest/little-swan/releases) page.
 
-The first time you use **Polish**, macOS also asks for Screen Recording permission. Little Swan captures one in-memory snapshot of the previously active window, recognizes its visible text locally, and never saves or uploads the screenshot. Standard drafting and translation do not need this permission.
+When screen context is enabled, the first contextual **Polish** request also asks for Screen Recording permission. Little Swan locks the exact window used before its panel opens, captures one in-memory snapshot, recognizes its visible text locally, and never saves or uploads the screenshot. If context is disabled or unavailable, Polish still organizes the Source without it.
 
 You can also download the ZIP from the Releases page, extract it, move `Little Swan.app` to Applications, and follow the same first-launch approval steps.
 

@@ -356,6 +356,23 @@ struct SettingsView: View {
                     .accessibilityHint("Copies the new English result after manual generation")
                 }
 
+                settingsRow("Polish context") {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Toggle(
+                            "Use the previous window when available",
+                            isOn: $draft.useScreenContextForPolish
+                        )
+                        .toggleStyle(.switch)
+                        .accessibilityLabel("Use previous window context for Polish")
+                        .accessibilityHint("Adds locally recognized text from the exact window used before opening Little Swan")
+
+                        Text("Polish always organizes the Source. When enabled, it also locks the exact previous window and reads its visible text for optional context.")
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
                 settingsRow("Default style") {
                     Picker("Default style", selection: $draft.defaultWritingStyle) {
                         ForEach(WritingStyle.allCases) { style in
@@ -642,12 +659,12 @@ struct SettingsView: View {
                     }
                 }
 
-                settingsRow("Polish with context") {
+                settingsRow("Polish Source") {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             KeyboardShortcutRecorder(
                                 shortcut: $draft.polishInputShortcut,
-                                accessibilityLabel: "Polish with context shortcut",
+                                accessibilityLabel: "Polish Source shortcut",
                                 accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
                             )
                                 .frame(width: 160, height: 28)
@@ -945,6 +962,7 @@ struct SettingsView: View {
             debounceMilliseconds: TranslationTiming.defaultRealtimeDelayMilliseconds,
             realtimeTranslationEnabled: true,
             copyGeneratedResultToClipboard: true,
+            useScreenContextForPolish: true,
             defaultWritingStyle: .spoken,
             panelContentSize: configStore.configuration.panelContentSize,
             toggleShortcut: .defaultToggleShortcut,
@@ -989,7 +1007,7 @@ struct SettingsView: View {
         if shortcutsConflict {
             "Shortcut was not saved. Choose a different shortcut for each action."
         } else if draft.polishInputShortcut.isValid {
-            "Captures the previously active window once and uses its visible text to Polish the current Source."
+            "Polishes the current Source and uses the locked previous window when screen context is enabled."
         } else {
             "Shortcut was not saved. Include at least one modifier key."
         }

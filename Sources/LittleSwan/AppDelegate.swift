@@ -41,7 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 resetMainWindow: { [weak self] in self?.panelController?.resetPlacementAndSize() },
                 openSettings: { [weak self] in self?.showSettings() }
             ),
-            configStore: configStore
+            configStore: configStore,
+            beforeShow: { [weak windowTracker] in
+                windowTracker?.lockFrontmostExternalWindow()
+            }
         )
 
         configureStatusItem()

@@ -8,14 +8,17 @@ final class FloatingPanelController {
     private let panel: NSPanel
     private let configStore: ConfigStore
     private let resizeDelegate: PanelResizeDelegate
+    private let beforeShow: () -> Void
     private var cancellables = Set<AnyCancellable>()
 
     init<Content: View, TitlebarAccessory: View>(
         rootView: Content,
         titlebarAccessoryView: TitlebarAccessory,
-        configStore: ConfigStore
+        configStore: ConfigStore,
+        beforeShow: @escaping () -> Void = {}
     ) {
         self.configStore = configStore
+        self.beforeShow = beforeShow
         resizeDelegate = PanelResizeDelegate(configStore: configStore)
 
         let initialSize = Self.contentSize(
@@ -75,6 +78,9 @@ final class FloatingPanelController {
     }
 
     func show() {
+        if !panel.isVisible {
+            beforeShow()
+        }
         applyPreferredFrame(animated: false)
         NSApp.activate(ignoringOtherApps: true)
         panel.makeKeyAndOrderFront(nil)

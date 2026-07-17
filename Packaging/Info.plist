@@ -38,6 +38,6 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2026 Bear Wang</string>
 	<key>NSScreenCaptureUsageDescription</key>
-	<string>Little Swan captures the previously active window only when you use Polish, so it can understand the text you are responding to.</string>
+	<string>When optional Polish context is enabled, Little Swan captures the exact window used before opening the app so it can understand the text you are responding to.</string>
 </dict>
 </plist>
