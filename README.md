@@ -1,5 +1,9 @@
 # Little Swan
 
+<p align="center">
+  <img src="Design/little-swan-icon.png" alt="Little Swan logo" width="180" />
+</p>
+
 Little Swan is a native macOS writing companion for non-native English speakers. It gives you a lightweight place to draft prompts, messages, emails, and other short-form writing, then turns text from any language into natural English when you are ready.
 
 It supports DeepSeek, OpenAI, and OpenRouter as bring-your-own-key writing engines. DeepSeek is the default provider.
@@ -8,20 +12,9 @@ Requires macOS 14 Sonoma or later.
 
 ## A quiet workspace for English writing
 
-<table>
-  <tr>
-    <td width="78%" align="center">
-      <img src="Design/little-swan-main-window.jpg" alt="Little Swan main writing window" />
-    </td>
-    <td width="22%" align="center">
-      <img src="Design/little-swan-icon.png" alt="Little Swan logo" width="180" />
-    </td>
-  </tr>
-  <tr>
-    <td align="center"><sub>Main writing window</sub></td>
-    <td align="center"><sub>Little Swan logo</sub></td>
-  </tr>
-</table>
+<p align="center">
+  <img src="Design/little-swan-main-window.jpg" alt="Little Swan translating a sample product update from Chinese into English" />
+</p>
 
 Little Swan is designed for people who regularly work in English but do not want the drafting process to interrupt the rest of their workflow.
 
