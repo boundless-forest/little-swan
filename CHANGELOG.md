@@ -4,6 +4,19 @@ All notable changes to Little Swan will be documented in this file.
 
 ## Unreleased
 
+## 0.1.3 - 2026-07-17
+
+### Added
+
+- Source-first Polish now organizes multi-batch dictation and mixed-language recognition errors even when screen context is disabled or unavailable.
+- Optional screen context locks the exact external window used before Little Swan opens and exposes a user-facing setting to disable capture.
+
+### Fixed
+
+- Screen capture, OCR, and permission failures now fall back to Source-only Polish instead of blocking the feature.
+- Multi-display capture no longer substitutes another visible window when the locked target closes or becomes unavailable.
+- ScreenCaptureKit imports now remain compatible with the Xcode 16.4 SDK used by GitHub Actions release builds.
+
 ## 0.1.2 - 2026-07-16
 
 ### Changed

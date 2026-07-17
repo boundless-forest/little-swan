@@ -2,7 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import LittleSwanCore
-import ScreenCaptureKit
+@preconcurrency import ScreenCaptureKit
 import Vision
 
 struct ExternalWindowTarget: Equatable, Sendable {
