@@ -4,13 +4,11 @@
   <img src="Design/little-swan-icon.png" alt="Little Swan logo" width="180" />
 </p>
 
-Little Swan is a native macOS writing companion for non-native English speakers. It gives you a lightweight place to draft prompts, messages, emails, and other short-form writing, then turns text from any language into natural English when you are ready.
+Little Swan is a native macOS writing companion for drafting messages. It gives you a lightweight place to draft prompts, messages, emails, and other short-form writing, then turns text from any language into natural English when you are ready.
 
-It supports DeepSeek, OpenAI, and OpenRouter as bring-your-own-key writing engines. DeepSeek is the default provider.
+The name comes from the washing machine in my home, made by the Chinese brand Little Swan. I like the brand, borrowed its name for this personal tool, and designed a dedicated origami-swan logo for the app.
 
-Requires macOS 14 Sonoma or later.
-
-## A quiet workspace for English writing
+## A quiet workspace for drafting messages
 
 <p align="center">
   <img src="Design/little-swan-main-window.jpg" alt="Little Swan translating a sample product update from Chinese into English" />
@@ -95,12 +93,6 @@ swift run LittleSwan
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the current development and external-contribution policy.
 
-Regenerate the app icon, `.icns`, and menu bar template icon from the checked-in SVG masters with:
-
-```sh
-make logo-assets
-```
-
 ## Privacy and local data
 
 Little Swan does not operate an account service or collect your personal information. It stores only the settings and working drafts needed to run the app on your Mac:
@@ -108,11 +100,7 @@ Little Swan does not operate an account service or collect your personal informa
 - Provider API keys and preferences: `~/Library/Application Support/Little Swan/config.json`
 - Five working drafts: `~/Library/Application Support/Little Swan/source-drafts.json`
 
-When you generate or polish text, Little Swan sends the source text to the provider you selected. Contextual Polish additionally sends locally recognized visible text plus the source application and window title; the screenshot itself is never sent. See [PRIVACY.md](PRIVACY.md) for details.
-
-## Why the name “Little Swan”?
-
-The name comes from the washing machine in my home, made by the Chinese brand Little Swan. I like the brand, borrowed its name for this personal tool, and designed a dedicated origami-swan logo for the app.
+When you generate or polish text, Little Swan sends the source text to the provider you selected. When available and enabled, contextual Polish additionally sends locally recognized visible text plus the source application and window title; the screenshot itself is never sent. See [PRIVACY.md](PRIVACY.md) for details.
 
 ## About the author
 
