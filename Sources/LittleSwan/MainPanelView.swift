@@ -54,6 +54,7 @@ struct MainPanelView: View {
             }
             .onChange(of: viewModel.selectedSourceDraftID) { _, _ in
                 inputGuidanceMessage = nil
+                isInputFocused = true
             }
     }
 

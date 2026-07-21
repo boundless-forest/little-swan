@@ -368,6 +368,10 @@ func testDefaultConfigurationUsesDeepSeekFlashWithFastRealtimeDelay() {
     precondition(configuration.generateTranslationShortcut.displayString == "⌘Return")
     precondition(configuration.polishInputShortcut == .defaultPolishInputShortcut)
     precondition(configuration.polishInputShortcut.displayString == "⌃P")
+    precondition(configuration.nextDraftShortcut == .defaultNextDraftShortcut)
+    precondition(configuration.nextDraftShortcut.displayString == "⌃Tab")
+    precondition(configuration.previousDraftShortcut == .defaultPreviousDraftShortcut)
+    precondition(configuration.previousDraftShortcut.displayString == "⌃⇧Tab")
     precondition(configuration.commonPhrases == CommonPhraseCollection.default)
 }
 
@@ -739,6 +743,14 @@ func testConfigurationDecodesPersistedShortcuts() throws {
       "generateTranslationShortcut": {
         "keyCode": 49,
         "modifierFlags": 1179648
+      },
+      "nextDraftShortcut": {
+        "keyCode": 124,
+        "modifierFlags": 1048576
+      },
+      "previousDraftShortcut": {
+        "keyCode": 123,
+        "modifierFlags": 1179648
       }
     }
     """.data(using: .utf8)!
@@ -760,6 +772,8 @@ func testConfigurationDecodesPersistedShortcuts() throws {
             == KeyboardShortcutConfiguration.commandModifierFlag | KeyboardShortcutConfiguration.shiftModifierFlag
     )
     precondition(configuration.generateTranslationShortcut.displayString == "⇧⌘Space")
+    precondition(configuration.nextDraftShortcut.displayString == "⌘→")
+    precondition(configuration.previousDraftShortcut.displayString == "⇧⌘←")
 }
 
 func testConfigurationDecodesLegacySettingsWithDefaultShortcuts() throws {
@@ -781,6 +795,8 @@ func testConfigurationDecodesLegacySettingsWithDefaultShortcuts() throws {
     precondition(configuration.resetWindowShortcut == .defaultResetWindowShortcut)
     precondition(configuration.generateTranslationShortcut == .defaultGenerateTranslationShortcut)
     precondition(configuration.polishInputShortcut == .defaultPolishInputShortcut)
+    precondition(configuration.nextDraftShortcut == .defaultNextDraftShortcut)
+    precondition(configuration.previousDraftShortcut == .defaultPreviousDraftShortcut)
 }
 
 func testConfigurationMigratesLegacyPolishShortcutToControlP() throws {
@@ -845,6 +861,19 @@ func testConfigurationAvoidsShortcutConflictsDuringMigration() throws {
         toggleShortcut: .defaultPolishInputShortcut
     )
     precondition(polishConflictConfiguration.polishInputShortcut == .fallbackPolishInputShortcut)
+
+    let nextDraftConflictConfiguration = AppConfiguration(
+        toggleShortcut: .defaultNextDraftShortcut
+    )
+    precondition(nextDraftConflictConfiguration.nextDraftShortcut == .fallbackNextDraftShortcut)
+
+    let previousDraftConflictConfiguration = AppConfiguration(
+        toggleShortcut: .defaultPreviousDraftShortcut
+    )
+    precondition(
+        previousDraftConflictConfiguration.previousDraftShortcut
+            == .fallbackPreviousDraftShortcut
+    )
 }
 
 func testCommonPhraseCollectionNormalizesPhrases() {
@@ -990,6 +1019,20 @@ func testKeyboardShortcutProvidesMenuEquivalentForDefaultPolishInputShortcut() {
 
     precondition(shortcut.menuKeyEquivalent == "p")
     precondition(shortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+}
+
+func testKeyboardShortcutProvidesMenuEquivalentsForDraftNavigation() {
+    let nextShortcut = KeyboardShortcutConfiguration.defaultNextDraftShortcut
+    let previousShortcut = KeyboardShortcutConfiguration.defaultPreviousDraftShortcut
+
+    precondition(nextShortcut.menuKeyEquivalent == "\t")
+    precondition(nextShortcut.menuModifierFlags == KeyboardShortcutConfiguration.controlModifierFlag)
+    precondition(previousShortcut.menuKeyEquivalent == "\t")
+    precondition(
+        previousShortcut.menuModifierFlags
+            == KeyboardShortcutConfiguration.controlModifierFlag
+                | KeyboardShortcutConfiguration.shiftModifierFlag
+    )
 }
 
 func testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys() {
@@ -1199,6 +1242,18 @@ func testSourceDraftCollectionUpdatesSelectedDraftText() {
     precondition(selectedDraft.updatedAt >= selectedDraft.createdAt)
 }
 
+func testSourceDraftCollectionWrapsRelativeDraftSelection() {
+    var collection = SourceDraftCollection.default
+    let draftIDs = collection.drafts.map(\.id)
+
+    precondition(collection.draftID(offsetFromSelectionBy: 1) == draftIDs[1])
+    precondition(collection.draftID(offsetFromSelectionBy: -1) == draftIDs[4])
+
+    collection.selectDraft(id: draftIDs[4])
+    precondition(collection.draftID(offsetFromSelectionBy: 1) == draftIDs[0])
+    precondition(collection.draftID(offsetFromSelectionBy: -1) == draftIDs[3])
+}
+
 func testSourceDraftCollectionNormalizesPersistedCollectionsToFive() {
     let selected = SourceDraft(text: "Selected")
     var extraDrafts = [selected]
@@ -1386,6 +1441,7 @@ testKeyboardShortcutProvidesMenuEquivalentForDefaultToggleShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultResetWindowShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultGenerateTranslationShortcut()
 testKeyboardShortcutProvidesMenuEquivalentForDefaultPolishInputShortcut()
+testKeyboardShortcutProvidesMenuEquivalentsForDraftNavigation()
 testKeyboardShortcutProvidesMenuEquivalentForFunctionAndArrowKeys()
 testKeyboardShortcutOmitsInvalidShortcutFromMenuEquivalent()
 testPanelPresentationClampsContentSize()
@@ -1400,6 +1456,7 @@ try testConfigurationDecodesLegacyPanelWidthPercentageAsContentSize()
 testConfigurationInitializerClampsPanelContentSize()
 testSourceDraftCollectionStartsWithFiveNumberedDrafts()
 testSourceDraftCollectionUpdatesSelectedDraftText()
+testSourceDraftCollectionWrapsRelativeDraftSelection()
 testSourceDraftCollectionNormalizesPersistedCollectionsToFive()
 testSourceDraftCollectionPadsSinglePersistedDraftToFive()
 testSourceDraftCollectionLabelsStayNumbered()

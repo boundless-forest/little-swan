@@ -13,6 +13,8 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
     public var resetWindowShortcut: KeyboardShortcutConfiguration
     public var generateTranslationShortcut: KeyboardShortcutConfiguration
     public var polishInputShortcut: KeyboardShortcutConfiguration
+    public var nextDraftShortcut: KeyboardShortcutConfiguration
+    public var previousDraftShortcut: KeyboardShortcutConfiguration
     public var commonPhrases: CommonPhraseCollection
 
     public init(
@@ -28,6 +30,8 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         resetWindowShortcut: KeyboardShortcutConfiguration = .defaultResetWindowShortcut,
         generateTranslationShortcut: KeyboardShortcutConfiguration = .defaultGenerateTranslationShortcut,
         polishInputShortcut: KeyboardShortcutConfiguration = .defaultPolishInputShortcut,
+        nextDraftShortcut: KeyboardShortcutConfiguration = .defaultNextDraftShortcut,
+        previousDraftShortcut: KeyboardShortcutConfiguration = .defaultPreviousDraftShortcut,
         commonPhrases: CommonPhraseCollection = .default
     ) {
         self.provider = provider
@@ -57,6 +61,25 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             resetWindowShortcut: self.resetWindowShortcut,
             generateTranslationShortcut: self.generateTranslationShortcut
         )
+        self.nextDraftShortcut = Self.nonConflictingNextDraftShortcut(
+            nextDraftShortcut,
+            existingShortcuts: [
+                toggleShortcut,
+                self.resetWindowShortcut,
+                self.generateTranslationShortcut,
+                self.polishInputShortcut
+            ]
+        )
+        self.previousDraftShortcut = Self.nonConflictingPreviousDraftShortcut(
+            previousDraftShortcut,
+            existingShortcuts: [
+                toggleShortcut,
+                self.resetWindowShortcut,
+                self.generateTranslationShortcut,
+                self.polishInputShortcut,
+                self.nextDraftShortcut
+            ]
+        )
         self.commonPhrases = commonPhrases.normalized()
     }
 
@@ -75,6 +98,8 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
         case resetWindowShortcut
         case generateTranslationShortcut
         case polishInputShortcut
+        case nextDraftShortcut
+        case previousDraftShortcut
         case commonPhrases
     }
 
@@ -145,6 +170,33 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
             toggleShortcut: toggleShortcut,
             resetWindowShortcut: resetWindowShortcut,
             generateTranslationShortcut: generateTranslationShortcut
+        )
+        let decodedNextDraftShortcut = try container.decodeIfPresent(
+            KeyboardShortcutConfiguration.self,
+            forKey: .nextDraftShortcut
+        ) ?? .defaultNextDraftShortcut
+        nextDraftShortcut = Self.nonConflictingNextDraftShortcut(
+            decodedNextDraftShortcut,
+            existingShortcuts: [
+                toggleShortcut,
+                resetWindowShortcut,
+                generateTranslationShortcut,
+                polishInputShortcut
+            ]
+        )
+        let decodedPreviousDraftShortcut = try container.decodeIfPresent(
+            KeyboardShortcutConfiguration.self,
+            forKey: .previousDraftShortcut
+        ) ?? .defaultPreviousDraftShortcut
+        previousDraftShortcut = Self.nonConflictingPreviousDraftShortcut(
+            decodedPreviousDraftShortcut,
+            existingShortcuts: [
+                toggleShortcut,
+                resetWindowShortcut,
+                generateTranslationShortcut,
+                polishInputShortcut,
+                nextDraftShortcut
+            ]
         )
         commonPhrases = try container.decodeIfPresent(
             CommonPhraseCollection.self,
@@ -228,6 +280,45 @@ public struct AppConfiguration: Codable, Equatable, Sendable {
                 return defaultShortcut
             }
             return .fallbackPolishInputShortcut
+        }
+        return shortcut
+    }
+
+    private static func nonConflictingNextDraftShortcut(
+        _ shortcut: KeyboardShortcutConfiguration,
+        existingShortcuts: [KeyboardShortcutConfiguration]
+    ) -> KeyboardShortcutConfiguration {
+        nonConflictingShortcut(
+            shortcut,
+            defaultShortcut: .defaultNextDraftShortcut,
+            fallbackShortcut: .fallbackNextDraftShortcut,
+            existingShortcuts: existingShortcuts
+        )
+    }
+
+    private static func nonConflictingPreviousDraftShortcut(
+        _ shortcut: KeyboardShortcutConfiguration,
+        existingShortcuts: [KeyboardShortcutConfiguration]
+    ) -> KeyboardShortcutConfiguration {
+        nonConflictingShortcut(
+            shortcut,
+            defaultShortcut: .defaultPreviousDraftShortcut,
+            fallbackShortcut: .fallbackPreviousDraftShortcut,
+            existingShortcuts: existingShortcuts
+        )
+    }
+
+    private static func nonConflictingShortcut(
+        _ shortcut: KeyboardShortcutConfiguration,
+        defaultShortcut: KeyboardShortcutConfiguration,
+        fallbackShortcut: KeyboardShortcutConfiguration,
+        existingShortcuts: [KeyboardShortcutConfiguration]
+    ) -> KeyboardShortcutConfiguration {
+        guard !existingShortcuts.contains(where: shortcut.conflicts) else {
+            guard existingShortcuts.contains(where: defaultShortcut.conflicts) else {
+                return defaultShortcut
+            }
+            return fallbackShortcut
         }
         return shortcut
     }

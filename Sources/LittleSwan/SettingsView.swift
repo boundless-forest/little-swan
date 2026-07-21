@@ -685,6 +685,57 @@ struct SettingsView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+
+                settingsRow("Draft navigation") {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text("Next")
+                                .font(LittleSwanTheme.Typography.buttonLabel)
+                                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                                .frame(width: 58, alignment: .leading)
+
+                            KeyboardShortcutRecorder(
+                                shortcut: $draft.nextDraftShortcut,
+                                accessibilityLabel: "Next Draft shortcut",
+                                accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
+                            )
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.nextDraftShortcut = .defaultNextDraftShortcut
+                            }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
+                        }
+
+                        HStack(spacing: 8) {
+                            Text("Previous")
+                                .font(LittleSwanTheme.Typography.buttonLabel)
+                                .foregroundStyle(LittleSwanTheme.Palette.textSecondary)
+                                .frame(width: 58, alignment: .leading)
+
+                            KeyboardShortcutRecorder(
+                                shortcut: $draft.previousDraftShortcut,
+                                accessibilityLabel: "Previous Draft shortcut",
+                                accessibilityHelp: "Click, then press a keyboard shortcut with at least one modifier key"
+                            )
+                                .frame(width: 160, height: 28)
+
+                            Button("Reset") {
+                                draft.previousDraftShortcut = .defaultPreviousDraftShortcut
+                            }
+                            .font(LittleSwanTheme.Typography.buttonLabel)
+                        }
+
+                        Text(draftNavigationShortcutHelpText)
+                            .font(LittleSwanTheme.Typography.helper)
+                            .foregroundStyle(
+                                draftNavigationShortcutsCanBeSaved
+                                    ? LittleSwanTheme.Palette.textSecondary
+                                    : LittleSwanTheme.Palette.danger
+                            )
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
             .padding(.vertical, 4)
         }
@@ -969,6 +1020,8 @@ struct SettingsView: View {
             resetWindowShortcut: .defaultResetWindowShortcut,
             generateTranslationShortcut: .defaultGenerateTranslationShortcut,
             polishInputShortcut: .defaultPolishInputShortcut,
+            nextDraftShortcut: .defaultNextDraftShortcut,
+            previousDraftShortcut: .defaultPreviousDraftShortcut,
             commonPhrases: .default
         )
     }
@@ -1013,13 +1066,32 @@ struct SettingsView: View {
         }
     }
 
+    private var draftNavigationShortcutHelpText: String {
+        if shortcutsConflict {
+            "Shortcut was not saved. Choose a different shortcut for each action."
+        } else if draft.nextDraftShortcut.isValid && draft.previousDraftShortcut.isValid {
+            "Moves between Drafts while the main window is active, wrapping at either end."
+        } else {
+            "Shortcut was not saved. Include at least one modifier key."
+        }
+    }
+
     private var shortcutsConflict: Bool {
-        draft.toggleShortcut.conflicts(with: draft.resetWindowShortcut)
-            || draft.toggleShortcut.conflicts(with: draft.generateTranslationShortcut)
-            || draft.toggleShortcut.conflicts(with: draft.polishInputShortcut)
-            || draft.resetWindowShortcut.conflicts(with: draft.generateTranslationShortcut)
-            || draft.resetWindowShortcut.conflicts(with: draft.polishInputShortcut)
-            || draft.generateTranslationShortcut.conflicts(with: draft.polishInputShortcut)
+        let shortcuts = configuredShortcuts
+        return shortcuts.enumerated().contains { index, shortcut in
+            shortcuts.dropFirst(index + 1).contains(where: shortcut.conflicts)
+        }
+    }
+
+    private var configuredShortcuts: [KeyboardShortcutConfiguration] {
+        [
+            draft.toggleShortcut,
+            draft.resetWindowShortcut,
+            draft.generateTranslationShortcut,
+            draft.polishInputShortcut,
+            draft.nextDraftShortcut,
+            draft.previousDraftShortcut
+        ]
     }
 
     private var toggleShortcutCanBeSaved: Bool {
@@ -1036,6 +1108,12 @@ struct SettingsView: View {
 
     private var polishInputShortcutCanBeSaved: Bool {
         draft.polishInputShortcut.isValid && !shortcutsConflict
+    }
+
+    private var draftNavigationShortcutsCanBeSaved: Bool {
+        draft.nextDraftShortcut.isValid
+            && draft.previousDraftShortcut.isValid
+            && !shortcutsConflict
     }
 
     private func scheduleAutoSave() {
@@ -1065,17 +1143,30 @@ struct SettingsView: View {
         if !nextConfiguration.polishInputShortcut.isValid {
             nextConfiguration.polishInputShortcut = configStore.configuration.polishInputShortcut
         }
-        let hasShortcutConflict = nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.resetWindowShortcut)
-            || nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
-            || nextConfiguration.toggleShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
-            || nextConfiguration.resetWindowShortcut.conflicts(with: nextConfiguration.generateTranslationShortcut)
-            || nextConfiguration.resetWindowShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
-            || nextConfiguration.generateTranslationShortcut.conflicts(with: nextConfiguration.polishInputShortcut)
+        if !nextConfiguration.nextDraftShortcut.isValid {
+            nextConfiguration.nextDraftShortcut = configStore.configuration.nextDraftShortcut
+        }
+        if !nextConfiguration.previousDraftShortcut.isValid {
+            nextConfiguration.previousDraftShortcut = configStore.configuration.previousDraftShortcut
+        }
+        let shortcuts = [
+            nextConfiguration.toggleShortcut,
+            nextConfiguration.resetWindowShortcut,
+            nextConfiguration.generateTranslationShortcut,
+            nextConfiguration.polishInputShortcut,
+            nextConfiguration.nextDraftShortcut,
+            nextConfiguration.previousDraftShortcut
+        ]
+        let hasShortcutConflict = shortcuts.enumerated().contains { index, shortcut in
+            shortcuts.dropFirst(index + 1).contains(where: shortcut.conflicts)
+        }
         if hasShortcutConflict {
             nextConfiguration.toggleShortcut = configStore.configuration.toggleShortcut
             nextConfiguration.resetWindowShortcut = configStore.configuration.resetWindowShortcut
             nextConfiguration.generateTranslationShortcut = configStore.configuration.generateTranslationShortcut
             nextConfiguration.polishInputShortcut = configStore.configuration.polishInputShortcut
+            nextConfiguration.nextDraftShortcut = configStore.configuration.nextDraftShortcut
+            nextConfiguration.previousDraftShortcut = configStore.configuration.previousDraftShortcut
         }
         configStore.configuration = nextConfiguration
         configStore.save()

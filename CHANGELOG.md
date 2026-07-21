@@ -4,6 +4,17 @@ All notable changes to Little Swan will be documented in this file.
 
 ## Unreleased
 
+## 0.1.4 - 2026-07-21
+
+### Added
+
+- Configurable Control-Tab and Control-Shift-Tab shortcuts cycle forward and backward through all five Drafts.
+- A dedicated Draft menu exposes both navigation commands while keeping them scoped to the active main window.
+
+### Changed
+
+- Keyboard Draft switching now preserves Source editor focus and wraps cleanly between Draft 1 and Draft 5.
+
 ## 0.1.3 - 2026-07-17
 
 ### Added

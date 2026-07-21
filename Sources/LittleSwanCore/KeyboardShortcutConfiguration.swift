@@ -10,7 +10,10 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let pKeyCode: UInt16 = 35
     public static let zeroKeyCode: UInt16 = 29
     public static let returnKeyCode: UInt16 = 36
+    public static let tabKeyCode: UInt16 = 48
     public static let spaceKeyCode: UInt16 = 49
+    public static let leftArrowKeyCode: UInt16 = 123
+    public static let rightArrowKeyCode: UInt16 = 124
 
     public static let defaultToggleShortcut = KeyboardShortcutConfiguration(
         keyCode: aKeyCode,
@@ -45,6 +48,26 @@ public struct KeyboardShortcutConfiguration: Codable, Equatable, Sendable {
     public static let fallbackPolishInputShortcut = KeyboardShortcutConfiguration(
         keyCode: pKeyCode,
         modifierFlags: commandModifierFlag | optionModifierFlag
+    )
+
+    public static let defaultNextDraftShortcut = KeyboardShortcutConfiguration(
+        keyCode: tabKeyCode,
+        modifierFlags: controlModifierFlag
+    )
+
+    public static let fallbackNextDraftShortcut = KeyboardShortcutConfiguration(
+        keyCode: rightArrowKeyCode,
+        modifierFlags: controlModifierFlag | optionModifierFlag
+    )
+
+    public static let defaultPreviousDraftShortcut = KeyboardShortcutConfiguration(
+        keyCode: tabKeyCode,
+        modifierFlags: controlModifierFlag | shiftModifierFlag
+    )
+
+    public static let fallbackPreviousDraftShortcut = KeyboardShortcutConfiguration(
+        keyCode: leftArrowKeyCode,
+        modifierFlags: controlModifierFlag | optionModifierFlag
     )
 
     static let legacyDefaultPolishInputShortcut = KeyboardShortcutConfiguration(

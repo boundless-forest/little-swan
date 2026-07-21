@@ -214,6 +214,14 @@ final class TranslationViewModel: ObservableObject {
         applySelectedDraft(draft)
     }
 
+    func selectNextSourceDraft() {
+        selectSourceDraft(offsetFromSelectionBy: 1)
+    }
+
+    func selectPreviousSourceDraft() {
+        selectSourceDraft(offsetFromSelectionBy: -1)
+    }
+
     func sourceDraftLabel(for draft: SourceDraft, fallbackIndex: Int) -> String {
         draft.displayTitle(fallbackIndex: fallbackIndex)
     }
@@ -228,6 +236,15 @@ final class TranslationViewModel: ObservableObject {
         errorMessage = nil
         isLoading = false
         inputText = draft.text
+    }
+
+    private func selectSourceDraft(offsetFromSelectionBy offset: Int) {
+        let collection = sourceDraftStore?.collection ?? SourceDraftCollection(
+            selectedDraftID: selectedSourceDraftID,
+            drafts: sourceDrafts
+        )
+        guard let targetID = collection.draftID(offsetFromSelectionBy: offset) else { return }
+        selectSourceDraft(targetID)
     }
 
     private func cancelInputPolishIfNeededForUserEdit() {

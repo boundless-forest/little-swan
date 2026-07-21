@@ -87,6 +87,15 @@ public struct SourceDraftCollection: Codable, Equatable, Sendable {
         selectedDraftID = id
     }
 
+    public func draftID(offsetFromSelectionBy offset: Int) -> UUID? {
+        guard !drafts.isEmpty else { return nil }
+
+        let selectedIndex = drafts.firstIndex(where: { $0.id == selectedDraftID }) ?? 0
+        let normalizedOffset = offset % drafts.count
+        let targetIndex = (selectedIndex + normalizedOffset + drafts.count) % drafts.count
+        return drafts[targetIndex].id
+    }
+
     public mutating func updateSelectedDraftText(_ text: String, now: Date = Date()) {
         guard let selectedIndex = drafts.firstIndex(where: { $0.id == selectedDraftID }) else {
             let draft = SourceDraft(text: text, createdAt: now, updatedAt: now)

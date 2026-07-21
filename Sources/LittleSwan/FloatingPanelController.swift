@@ -11,6 +11,10 @@ final class FloatingPanelController {
     private let beforeShow: () -> Void
     private var cancellables = Set<AnyCancellable>()
 
+    var isKeyWindow: Bool {
+        panel.isKeyWindow
+    }
+
     init<Content: View, TitlebarAccessory: View>(
         rootView: Content,
         titlebarAccessoryView: TitlebarAccessory,

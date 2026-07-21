@@ -4,7 +4,7 @@ import LittleSwanCore
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     private static let statusBarIconSize = NSSize(width: 18, height: 18)
     private static let statusBarTemplateIconName = "LittleSwanMenuBarTemplate"
     private static let statusItemAutosaveName = "LittleSwanStatusItem.v2"
@@ -15,10 +15,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var toggleHotKeyController: GlobalHotKeyController?
     private var resetWindowHotKeyController: GlobalHotKeyController?
     private var resetMainWindowMenuItem: NSMenuItem?
+    private var nextDraftMenuItem: NSMenuItem?
+    private var previousDraftMenuItem: NSMenuItem?
     private var cancellables = Set<AnyCancellable>()
     private let configStore = ConfigStore()
     private let sourceDraftStore = SourceDraftStore()
     private var externalWindowTracker: ExternalWindowTracker?
+    private var viewModel: TranslationViewModel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -31,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             sourceDraftStore: sourceDraftStore,
             contextCaptureService: ScreenContextCaptureService(tracker: windowTracker)
         )
+        self.viewModel = viewModel
         panelController = FloatingPanelController(
             rootView: MainPanelView(
                 viewModel: viewModel,
@@ -48,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         configureStatusItem()
-        configureGlobalShortcuts()
+        configureShortcuts()
         panelController?.show()
     }
 
@@ -75,6 +79,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
         editMenuItem.submenu = editMenu
         mainMenu.addItem(editMenuItem)
+
+        let draftMenuItem = NSMenuItem()
+        let draftMenu = NSMenu(title: "Draft")
+        let nextDraftItem = NSMenuItem(
+            title: "Next Draft",
+            action: #selector(selectNextDraft),
+            keyEquivalent: ""
+        )
+        nextDraftItem.target = self
+        apply(configStore.configuration.nextDraftShortcut, to: nextDraftItem)
+        draftMenu.addItem(nextDraftItem)
+        nextDraftMenuItem = nextDraftItem
+
+        let previousDraftItem = NSMenuItem(
+            title: "Previous Draft",
+            action: #selector(selectPreviousDraft),
+            keyEquivalent: ""
+        )
+        previousDraftItem.target = self
+        apply(configStore.configuration.previousDraftShortcut, to: previousDraftItem)
+        draftMenu.addItem(previousDraftItem)
+        previousDraftMenuItem = previousDraftItem
+        draftMenuItem.submenu = draftMenu
+        mainMenu.addItem(draftMenuItem)
 
         let windowMenuItem = NSMenuItem()
         let windowMenu = NSMenu(title: "Window")
@@ -109,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = item
     }
 
-    private func configureGlobalShortcuts() {
+    private func configureShortcuts() {
         let toggleHotKeyController = GlobalHotKeyController(identifier: 1) { [weak self] in
             self?.panelController?.toggle()
         }
@@ -124,6 +152,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .removeDuplicates()
             .sink { shortcut in
                 toggleHotKeyController.update(shortcut: shortcut)
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.nextDraftShortcut)
+            .removeDuplicates()
+            .sink { [weak self] shortcut in
+                if let menuItem = self?.nextDraftMenuItem {
+                    self?.apply(shortcut, to: menuItem)
+                }
+            }
+            .store(in: &cancellables)
+
+        configStore.$configuration
+            .map(\.previousDraftShortcut)
+            .removeDuplicates()
+            .sink { [weak self] shortcut in
+                if let menuItem = self?.previousDraftMenuItem {
+                    self?.apply(shortcut, to: menuItem)
+                }
             }
             .store(in: &cancellables)
 
@@ -208,6 +256,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func resetMainWindow() {
         panelController?.resetPlacementAndSize()
+    }
+
+    @objc private func selectNextDraft() {
+        guard panelController?.isKeyWindow == true else { return }
+        viewModel?.selectNextSourceDraft()
+    }
+
+    @objc private func selectPreviousDraft() {
+        guard panelController?.isKeyWindow == true else { return }
+        viewModel?.selectPreviousSourceDraft()
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(selectNextDraft)
+            || menuItem.action == #selector(selectPreviousDraft) {
+            return panelController?.isKeyWindow == true
+        }
+        return true
     }
 
     @objc private func quit() {
